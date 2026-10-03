@@ -1,0 +1,72 @@
+[project]
+name = "arthur"
+version = "0.1.0"
+description = "Arthur - a local-first, privacy-preserving AI engineering assistant for Linux, powered by Ollama."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Kite-Bite", email = "omermt2016@proton.me" }]
+requires-python = ">=3.12"
+keywords = ["ai", "llm", "agent", "rag", "ollama", "local-first", "assistant"]
+dependencies = [
+    "pydantic>=2.7,<3",
+    "typer>=0.12,<1",
+    "rich>=13.7",
+    "httpx>=0.27",
+    "fastapi>=0.111",
+    "uvicorn>=0.30",
+    "sqlalchemy>=2.0",
+    "psutil>=5.9",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+# Optional vector backend. The default backend is built-in (SQLite + numpy).
+chroma = ["chromadb>=0.5"]
+# Optional PDF extraction for the RAG ingestion pipeline.
+pdf = ["pypdf>=4.2"]
+
+[project.scripts]
+arthur = "arthur.cli.main:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "types-psutil",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.21,<0.13.0"]
+build-backend = "uv_build"
+
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["arthur"]
+
+[tool.mypy]
+python_version = "3.12"
+disallow_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+exclude = ["build/", "dist/", ".venv/"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["error::DeprecationWarning:arthur.*"]
