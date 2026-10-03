@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,19 @@ from arthur.security.policy import SecurityPolicy
 from arthur.services import Services
 from arthur.tools.base import ToolContext
 from arthur.tools.registry import ToolRegistry
+
+
+@pytest.fixture(autouse=True)
+def _reset_arthur_logging() -> None:
+    """Drop handlers installed by CLI/API code so captures stay clean."""
+    yield
+    logger = logging.getLogger("arthur")
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+        try:
+            handler.close()
+        except Exception:  # noqa: BLE001 - best effort cleanup
+            pass
 
 
 @pytest.fixture()
@@ -84,7 +98,7 @@ def executor_factory(base_config: Config):
 def scripted(services: Services):
     """Swap a scripted LLM into the services graph; returns the double."""
 
-    def _make(responses: list[str], **kwargs: Any) -> ScriptedLLM:
+    def _make(responses: list[str] | None = None, **kwargs: Any) -> ScriptedLLM:
         llm = ScriptedLLM(responses, **kwargs)
         services.swap_llm(llm)
         return llm

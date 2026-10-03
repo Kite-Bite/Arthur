@@ -36,9 +36,7 @@ def test_empty_tool_string_normalised_to_none() -> None:
 
 
 def test_plan_and_answer_fields() -> None:
-    decision = parse_decision(
-        '{"plan": ["a", "b"], "tool": null, "answer": "text"}'
-    )
+    decision = parse_decision('{"plan": ["a", "b"], "tool": null, "answer": "text"}')
     assert decision.plan == ["a", "b"]
     assert decision.answer == "text"
 

@@ -22,8 +22,7 @@ def test_defaults_when_no_sources(tmp_path: Path) -> None:
 def test_config_file_applies(tmp_path: Path) -> None:
     config_file = tmp_path / "config.toml"
     config_file.write_text(
-        '[llm]\nmodel = "qwen3:4b"\ntemperature = 0.7\n'
-        "[security]\ndefault_shell_access = true\n",
+        '[llm]\nmodel = "qwen3:4b"\ntemperature = 0.7\n[security]\ndefault_shell_access = true\n',
         encoding="utf-8",
     )
     cfg = load_config(path=config_file, env={})
@@ -35,9 +34,7 @@ def test_config_file_applies(tmp_path: Path) -> None:
 def test_environment_beats_config_file(tmp_path: Path) -> None:
     config_file = tmp_path / "config.toml"
     config_file.write_text('[llm]\nmodel = "from-file"\n', encoding="utf-8")
-    cfg = load_config(
-        path=config_file, env={"ARTHUR_LLM_MODEL": "from-env", "MODEL_NAME": "alias"}
-    )
+    cfg = load_config(path=config_file, env={"ARTHUR_LLM_MODEL": "from-env", "MODEL_NAME": "alias"})
     # Ollama alias and ARTHUR_ var both map to llm.model; ARTHUR_ wins last.
     assert cfg.llm.model == "from-env"
 

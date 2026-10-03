@@ -18,8 +18,8 @@ def test_runs_argv_without_shell() -> None:
 
 def test_echo_does_not_interpret_quotes() -> None:
     # No shell means quote characters arrive literally (no quote stripping).
-    result = run_argv(["echo", "it's a \"quoted\" value"])
-    assert result.stdout.strip() == "it's a \"quoted\" value"
+    result = run_argv(["echo", 'it\'s a "quoted" value'])
+    assert result.stdout.strip() == 'it\'s a "quoted" value'
 
 
 @pytest.mark.parametrize(

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import BaseModel
 
 from arthur.security.permissions import PermissionLevel
 from arthur.tools.base import Tool, ToolContext, ToolResult
 from arthur.tools.registry import ToolRegistry, default_registry
-from pydantic import BaseModel
 
 
 class _Args(BaseModel):
@@ -69,14 +69,30 @@ def test_default_registry_is_complete() -> None:
     registry = default_registry()
     names = set(registry.names())
     expected = {
-        "list_files", "search_files", "read_file", "write_file", "copy_file",
-        "move_file", "delete_file",
-        "system_info", "cpu_info", "memory_info", "disk_usage", "process_list",
-        "network_info", "uptime",
+        "list_files",
+        "search_files",
+        "read_file",
+        "write_file",
+        "copy_file",
+        "move_file",
+        "delete_file",
+        "system_info",
+        "cpu_info",
+        "memory_info",
+        "disk_usage",
+        "process_list",
+        "network_info",
+        "uptime",
         "run_command",
-        "git_status", "git_log", "git_branches", "git_diff", "git_info",
-        "index_documents", "search_documents",
-        "remember", "recall",
+        "git_status",
+        "git_log",
+        "git_branches",
+        "git_diff",
+        "git_info",
+        "index_documents",
+        "search_documents",
+        "remember",
+        "recall",
     }
     assert names == expected
 

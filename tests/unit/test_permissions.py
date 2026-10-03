@@ -69,9 +69,7 @@ def test_confirm_tool_requires_confirmation(policy: SecurityPolicy) -> None:
 
 def test_require_confirmation_false_disables_prompt(tmp_path: Path) -> None:
     config = SecurityConfig(allowed_roots=[str(tmp_path)], require_confirmation=False)
-    decision = SecurityPolicy(config).evaluate(
-        _ConfirmStub(), _Args(), _Args().model_dump()
-    )
+    decision = SecurityPolicy(config).evaluate(_ConfirmStub(), _Args(), _Args().model_dump())
     assert decision.allowed and not decision.requires_confirmation
 
 
@@ -85,9 +83,7 @@ def test_restricted_allowed_when_enabled(tmp_path: Path) -> None:
     config = SecurityConfig(
         allowed_roots=[str(tmp_path)], allow_restricted=True, require_confirmation=True
     )
-    decision = SecurityPolicy(config).evaluate(
-        _RestrictedStub(), _Args(), _Args().model_dump()
-    )
+    decision = SecurityPolicy(config).evaluate(_RestrictedStub(), _Args(), _Args().model_dump())
     assert decision.allowed and decision.requires_confirmation
 
 

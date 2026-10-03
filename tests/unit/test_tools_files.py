@@ -45,9 +45,7 @@ def test_write_refuses_overwrite_without_flag(ctx: ToolContext, tmp_path: Path) 
     target = tmp_path / "exists.txt"
     target.write_text("original", encoding="utf-8")
     with pytest.raises(ToolError, match="overwrite=true"):
-        WriteFileTool().run(
-            WriteFileTool.args_model(path=str(target), content="new"), ctx
-        )
+        WriteFileTool().run(WriteFileTool.args_model(path=str(target), content="new"), ctx)
     assert target.read_text() == "original"
 
 
@@ -64,9 +62,7 @@ def test_write_permission_upgrades_on_overwrite(ctx: ToolContext, tmp_path: Path
 def test_read_offset_limit(ctx: ToolContext, tmp_path: Path) -> None:
     target = tmp_path / "lines.txt"
     target.write_text("\n".join(f"line{i}" for i in range(1, 11)), encoding="utf-8")
-    result = ReadFileTool().run(
-        ReadFileTool.args_model(path=str(target), offset=3, limit=2), ctx
-    )
+    result = ReadFileTool().run(ReadFileTool.args_model(path=str(target), offset=3, limit=2), ctx)
     assert result.data["returned_lines"] == 2
     assert "line3" in result.data["content"] and "line4" in result.data["content"]
     assert "line5" not in result.data["content"]
@@ -115,9 +111,7 @@ def test_search_by_name(ctx: ToolContext, tmp_path: Path) -> None:
     (tmp_path / "ProjectAlpha").mkdir()
     (tmp_path / "ProjectAlpha" / "main.py").write_text("print(1)", encoding="utf-8")
     (tmp_path / "notes.txt").write_text("x", encoding="utf-8")
-    result = SearchFilesTool().run(
-        SearchFilesTool.args_model(root=str(tmp_path), glob="*.py"), ctx
-    )
+    result = SearchFilesTool().run(SearchFilesTool.args_model(root=str(tmp_path), glob="*.py"), ctx)
     assert result.data["count"] == 1
     assert result.data["files"][0]["name"] == "main.py"
 
@@ -128,8 +122,7 @@ def test_search_by_content(ctx: ToolContext, tmp_path: Path) -> None:
     )
     (tmp_path / "other.md").write_text("nothing here", encoding="utf-8")
     result = SearchFilesTool().run(
-        SearchFilesTool.args_model(root=str(tmp_path), content_query="SNAPSHOT delete"),
-        ctx
+        SearchFilesTool.args_model(root=str(tmp_path), content_query="SNAPSHOT delete"), ctx
     )
     assert result.data["count"] == 1
     assert "linux.md" in result.data["files"][0]["path"]
@@ -178,7 +171,5 @@ def test_delete_directory_requires_recursive(ctx: ToolContext, tmp_path: Path) -
     (folder / "f.txt").write_text("x", encoding="utf-8")
     with pytest.raises(ToolError, match="recursive=true"):
         DeleteFileTool().run(DeleteFileTool.args_model(path=str(folder)), ctx)
-    DeleteFileTool().run(
-        DeleteFileTool.args_model(path=str(folder), recursive=True), ctx
-    )
+    DeleteFileTool().run(DeleteFileTool.args_model(path=str(folder), recursive=True), ctx)
     assert not folder.exists()
