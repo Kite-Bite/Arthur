@@ -19,9 +19,7 @@ class ExtractionError(Exception):
     """The file exists but its text could not be extracted."""
 
 
-def extract_text(
-    path: Path, *, formats: set[str], max_bytes: int = 2_000_000
-) -> tuple[str, str]:
+def extract_text(path: Path, *, formats: set[str], max_bytes: int = 2_000_000) -> tuple[str, str]:
     """Extract text from ``path``.
 
     Args:
@@ -39,8 +37,7 @@ def extract_text(
     ext = path.suffix.lstrip(".").lower()
     if ext not in formats:
         raise UnsupportedFormatError(
-            f".{ext or '?'} files are not configured for indexing "
-            f"(see retrieval.formats)"
+            f".{ext or '?'} files are not configured for indexing (see retrieval.formats)"
         )
     if not path.is_file():
         raise ExtractionError(f"not a regular file: {path}")
@@ -64,7 +61,7 @@ def extract_text(
 
 def _extract_pdf(path: Path) -> str:
     try:
-        from pypdf import PdfReader  # type: ignore[import-not-found]
+        from pypdf import PdfReader
     except ImportError as exc:
         raise ExtractionError(
             "PDF support requires pypdf; install with: uv sync --extra pdf"

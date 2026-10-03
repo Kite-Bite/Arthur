@@ -112,9 +112,13 @@ class ListFilesTool(Tool):
                     break
 
         return ToolResult(
-            summary=f"{len(entries)} entries in {root}"
-            + (" (truncated)" if truncated else ""),
-            data={"directory": str(root), "count": len(entries), "truncated": truncated, "entries": entries},
+            summary=f"{len(entries)} entries in {root}" + (" (truncated)" if truncated else ""),
+            data={
+                "directory": str(root),
+                "count": len(entries),
+                "truncated": truncated,
+                "entries": entries,
+            },
         )
 
 
@@ -155,9 +159,7 @@ class SearchFilesTool(Tool):
 
         candidates: Iterator[Path]
         candidates = (
-            _walk_files(root, ctx.paths.denied_dir_names)
-            if root.is_dir()
-            else iter([root])
+            _walk_files(root, ctx.paths.denied_dir_names) if root.is_dir() else iter([root])
         )
         for path in candidates:
             if needle is not None and needle not in path.name.casefold():
@@ -190,7 +192,12 @@ class SearchFilesTool(Tool):
         return ToolResult(
             summary=f"{len(matches)} matching files under {root}"
             + (" (truncated)" if truncated else ""),
-            data={"root": str(root), "count": len(matches), "truncated": truncated, "files": matches},
+            data={
+                "root": str(root),
+                "count": len(matches),
+                "truncated": truncated,
+                "files": matches,
+            },
         )
 
 
@@ -218,13 +225,10 @@ class ReadFileTool(Tool):
         text, truncated = _read_text(path)
         lines = text.splitlines()
         window = lines[args.offset - 1 : args.offset - 1 + args.limit]
-        numbered = "\n".join(
-            f"{args.offset + i:5d} | {line}" for i, line in enumerate(window)
-        )
+        numbered = "\n".join(f"{args.offset + i:5d} | {line}" for i, line in enumerate(window))
         return ToolResult(
             summary=(
-                f"{path}: lines {args.offset}-{args.offset + len(window) - 1} "
-                f"of {len(lines)}"
+                f"{path}: lines {args.offset}-{args.offset + len(window) - 1} of {len(lines)}"
             ),
             data={
                 "path": str(path),
@@ -376,6 +380,7 @@ class DeleteFileTool(Tool):
     action = "Delete a file or directory"
     permission = PermissionLevel.CONFIRM
     risk = "high"
+    destructive = True
     args_model = DeleteFileArgs
 
     def run(self, args: DeleteFileArgs, ctx: ToolContext) -> ToolResult:

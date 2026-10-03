@@ -10,7 +10,7 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from arthur.agent.types import AgentResult, AgentStep
-from arthur.security.confirmation import ConfirmationRequest, approve
+from arthur.security.confirmation import ConfirmationCallback, ConfirmationRequest, approve
 from arthur.services import Services
 
 console = Console()
@@ -120,7 +120,7 @@ def execute_turn(
     text: str,
     conversation_id: str | None,
     *,
-    confirm_handler,
+    confirm_handler: ConfirmationCallback,
     show_steps: bool = True,
     stream: bool = True,
 ) -> str | None:
@@ -190,8 +190,7 @@ def run_chat(config_path: Path | None = None, *, assume_yes: bool = False) -> No
                 )
             except typer.Exit:
                 console.print(
-                    "[red]Request failed (see error above).[/red] "
-                    "Check that Ollama is running."
+                    "[red]Request failed (see error above).[/red] Check that Ollama is running."
                 )
     finally:
         services.close()

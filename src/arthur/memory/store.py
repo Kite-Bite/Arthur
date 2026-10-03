@@ -13,9 +13,10 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from arthur.database.models import MemoryRecord, utcnow
+from arthur.database.session import rowcount
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
@@ -39,12 +40,17 @@ def tokenize(text: str) -> list[str]:
     return [t for t in _TOKEN_RE.findall(text.casefold()) if len(t) >= 2]
 
 
+#: ``MemoryStore.list`` shadows the builtin inside the class body, so return
+#: annotations reference this module-level alias instead of ``list[...]``.
+MemoryItemList = list[MemoryItem]
+
+
 class MemoryStore:
     """CRUD + search over the ``memory_records`` table."""
 
     def __init__(
         self,
-        session_factory: sessionmaker[object],
+        session_factory: sessionmaker[Session],
         *,
         default_importance: float = 0.5,
     ) -> None:
@@ -64,7 +70,7 @@ class MemoryStore:
         content = content.strip()
         if not content:
             raise ValueError("memory content must not be empty")
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             record = MemoryRecord(
                 content=content,
                 category=category.strip() or "general",
@@ -79,13 +85,13 @@ class MemoryStore:
             return _to_item(record)
 
     def get(self, memory_id: int) -> MemoryItem | None:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             record = session.get(MemoryRecord, memory_id)
             return _to_item(record) if record else None
 
-    def list(self, *, limit: int = 50, category: str | None = None) -> list[MemoryItem]:
+    def list(self, *, limit: int = 50, category: str | None = None) -> MemoryItemList:
         self.purge_expired()
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             stmt = select(MemoryRecord)
             if category:
                 stmt = stmt.where(MemoryRecord.category == category)
@@ -94,21 +100,19 @@ class MemoryStore:
             ).scalars()
             return [_to_item(r) for r in records]
 
-    def search(
-        self, query: str, *, limit: int = 5, category: str | None = None
-    ) -> list[MemoryItem]:
+    def search(self, query: str, *, limit: int = 5, category: str | None = None) -> MemoryItemList:
         """Rank memories by token overlap, weighted by importance."""
         self.purge_expired()
         tokens = tokenize(query)
         if not tokens:
             return []
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             stmt = select(MemoryRecord)
             if category:
                 stmt = stmt.where(MemoryRecord.category == category)
             records = list(session.execute(stmt).scalars())
 
-        scored: list[MemoryItem] = []
+        scored: MemoryItemList = []
         for record in records:
             haystack = tokenize(f"{record.content} {record.category}")
             if not haystack:
@@ -123,29 +127,27 @@ class MemoryStore:
         return scored[:limit]
 
     def delete(self, memory_id: int) -> bool:
-        with self._sf() as session:  # type: ignore[operator]
-            result = session.execute(
-                delete(MemoryRecord).where(MemoryRecord.id == memory_id)
-            )
+        with self._sf() as session:
+            result = session.execute(delete(MemoryRecord).where(MemoryRecord.id == memory_id))
             session.commit()
-            return bool(result.rowcount)
+            return rowcount(result) > 0
 
     def delete_all(self, *, category: str | None = None) -> int:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             stmt = delete(MemoryRecord)
             if category:
                 stmt = stmt.where(MemoryRecord.category == category)
             result = session.execute(stmt)
             session.commit()
-            return int(result.rowcount or 0)
+            return rowcount(result)
 
     def count(self) -> int:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             return int(session.execute(select(func.count(MemoryRecord.id))).scalar() or 0)
 
     def purge_expired(self) -> int:
         """Delete entries whose expiration has passed."""
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             result = session.execute(
                 delete(MemoryRecord).where(
                     MemoryRecord.expires_at.is_not(None),
@@ -153,7 +155,7 @@ class MemoryStore:
                 )
             )
             session.commit()
-            return int(result.rowcount or 0)
+            return rowcount(result)
 
 
 def _to_item(record: MemoryRecord, *, score: float = 0.0) -> MemoryItem:

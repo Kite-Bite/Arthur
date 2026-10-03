@@ -32,10 +32,9 @@ class RememberTool(Tool):
     def run(self, args: RememberArgs, ctx: ToolContext) -> ToolResult:
         if ctx.memory is None:
             raise ToolError("memory service is not available")
-        if any(word in args.content.casefold() for word in ("password", "secret", "api key", "token")):
-            raise ToolError(
-                "refusing to store what looks like a secret (password/token/api key)"
-            )
+        sensitive = ("password", "secret", "api key", "token")
+        if any(word in args.content.casefold() for word in sensitive):
+            raise ToolError("refusing to store what looks like a secret (password/token/api key)")
         entry = ctx.memory.add(
             content=args.content,
             category=args.category,

@@ -40,8 +40,10 @@ def build_system_prompt(
     workdir = str(cwd or Path.cwd())
 
     sections: list[str] = [
-        "You are Arthur, a local-first AI engineering assistant running on the user's Linux machine.",
-        f"Date: {today}. Working directory: {workdir}. Everything happens locally; do not suggest cloud APIs.",
+        "You are Arthur, a local-first AI engineering assistant running on the user's "
+        "Linux machine.",
+        f"Date: {today}. Working directory: {workdir}. Everything happens locally; "
+        "do not suggest cloud APIs.",
         (
             "You act ONLY by selecting registered tools. You never generate shell commands, "
             "never invent tools, and never claim to have run something you did not run."
@@ -55,13 +57,15 @@ def build_system_prompt(
         )
     else:
         sections.append(
-            "Shell access is disabled. Use the file/system/git/document tools instead of shell commands."
+            "Shell access is disabled. Use the file/system/git/document tools instead "
+            "of shell commands."
         )
 
     sections.append(
         """
 ## Decision protocol
-At each step, respond with EXACTLY ONE JSON object and nothing else - no prose, no markdown, no code fences:
+At each step, respond with EXACTLY ONE JSON object and nothing else - no prose, no
+markdown, no code fences:
 {
   "thought": "<your brief reasoning>",
   "plan": ["<optional: steps you intend to follow>"],
@@ -75,23 +79,24 @@ Rules:
 - If you already know enough to answer, set "tool": null, "args": null, "answer": null.
   You will then be asked to write the final answer in plain text.
 - Observations from tools arrive in later messages; read them carefully before deciding.
-- Prefer absolute paths under the user's home directory; relative paths resolve against the working directory.
+- Prefer absolute paths under the user's home directory; relative paths resolve
+  against the working directory.
 - Some operations require user confirmation; the system handles that - never try to bypass it.
-- If a tool reports PERMISSION DENIED or INVALID ARGUMENTS, adapt instead of repeating the same call.
+- If a tool reports PERMISSION DENIED or INVALID ARGUMENTS, adapt instead of
+  repeating the same call.
 """
     )
 
     if memories:
-        lines = "\n".join(
-            f"- [{m.category}] {m.content}" for m in memories[:MAX_MEMORIES]
-        )
+        lines = "\n".join(f"- [{m.category}] {m.content}" for m in memories[:MAX_MEMORIES])
         sections.append(f"## Known memories (from previous conversations)\n{lines}")
 
     if indexed_sources:
         shown = sorted(indexed_sources)[:MAX_INDEXED_SOURCES]
         listing = "\n".join(f"- {source}" for source in shown)
         more = (
-            "" if len(indexed_sources) <= MAX_INDEXED_SOURCES
+            ""
+            if len(indexed_sources) <= MAX_INDEXED_SOURCES
             else f"\n- ...and {len(indexed_sources) - MAX_INDEXED_SOURCES} more"
         )
         sections.append(
@@ -107,14 +112,16 @@ def build_answer_system_prompt(config: Config) -> str:
     """Build the system prompt for the final (streamed) answer phase."""
     return "\n".join(
         [
-            "You are Arthur, a local-first AI engineering assistant running on the user's Linux machine.",
+            "You are Arthur, a local-first AI engineering assistant running on the "
+            "user's Linux machine.",
             "Write the final answer to the user's request based strictly on the conversation "
             "and tool observations provided.",
             "Rules:",
             "- Plain text only: no JSON, no tool calls, no code fences around the whole answer.",
             "  Markdown formatting inside the answer is fine.",
             "- Be concise and concrete. Show real numbers, paths and results from observations.",
-            "- If a tool was denied, declined, or failed, say so honestly; never pretend it worked.",
+            "- If a tool was denied, declined, or failed, say so honestly; never "
+            "pretend it worked.",
             "- Cite documents ONLY with markers of the form [source: /absolute/path] for paths "
             "that actually appeared in observations. Never invent document paths.",
             "- If asked to perform a destructive operation, restate exactly what would change "

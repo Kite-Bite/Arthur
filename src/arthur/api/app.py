@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 
@@ -25,22 +26,33 @@ from arthur.api.schemas import (
 )
 from arthur.execution.types import ExecutionOutcome
 from arthur.llm.base import LLMError
+from arthur.memory.store import MemoryItem
 from arthur.security.confirmation import approve
 from arthur.services import Services
 
-OPENAPI_TAGS = ["meta", "chat", "tools", "memory", "documents", "logs"]
+OPENAPI_TAGS: list[dict[str, Any]] = [
+    {"name": name, "description": description}
+    for name, description in (
+        ("meta", "Health, version and system information"),
+        ("chat", "Agent conversation and tool execution"),
+        ("tools", "Tool registry introspection"),
+        ("memory", "Long-term memory entries"),
+        ("documents", "Document indexing and semantic search"),
+        ("logs", "Audit log queries"),
+    )
+]
 
 
-def _item(item: object) -> dict[str, object]:
+def _item(item: MemoryItem) -> dict[str, Any]:
     """Serialize a MemoryItem for API responses."""
     return {
-        "id": item.id,  # type: ignore[attr-defined]
-        "content": item.content,  # type: ignore[attr-defined]
-        "category": item.category,  # type: ignore[attr-defined]
-        "source": item.source,  # type: ignore[attr-defined]
-        "importance": item.importance,  # type: ignore[attr-defined]
-        "created_at": item.created_at,  # type: ignore[attr-defined]
-        "expires_at": item.expires_at,  # type: ignore[attr-defined]
+        "id": item.id,
+        "content": item.content,
+        "category": item.category,
+        "source": item.source,
+        "importance": item.importance,
+        "created_at": item.created_at,
+        "expires_at": item.expires_at,
     }
 
 
@@ -107,8 +119,9 @@ def create_app(services: Services | None = None) -> FastAPI:
 
     # --- chat ---------------------------------------------------------------
 
-    @app.post("/chat", response_model=AgentResult, tags=["chat"],
-              dependencies=[Depends(require_auth)])
+    @app.post(
+        "/chat", response_model=AgentResult, tags=["chat"], dependencies=[Depends(require_auth)]
+    )
     def chat(payload: ChatRequest) -> AgentResult:
         """Run one agent request (may execute tools under the security policy).
 
@@ -131,8 +144,12 @@ def create_app(services: Services | None = None) -> FastAPI:
 
     # --- tools --------------------------------------------------------------
 
-    @app.get("/tools", response_model=list[ToolInfo], tags=["tools"],
-             dependencies=[Depends(require_auth)])
+    @app.get(
+        "/tools",
+        response_model=list[ToolInfo],
+        tags=["tools"],
+        dependencies=[Depends(require_auth)],
+    )
     def list_tools() -> list[ToolInfo]:
         """List registered tools with permissions and schemas."""
         return [
@@ -147,8 +164,12 @@ def create_app(services: Services | None = None) -> FastAPI:
             for tool in svc().registry.list()
         ]
 
-    @app.post("/tools/{tool_name}/execute", response_model=ExecutionOutcome,
-              tags=["tools"], dependencies=[Depends(require_auth)])
+    @app.post(
+        "/tools/{tool_name}/execute",
+        response_model=ExecutionOutcome,
+        tags=["tools"],
+        dependencies=[Depends(require_auth)],
+    )
     def execute_tool(tool_name: str, payload: ToolExecuteRequest) -> ExecutionOutcome:
         """Execute a tool directly (same pipeline as agent-driven calls)."""
         return svc().executor.execute(
@@ -173,8 +194,13 @@ def create_app(services: Services | None = None) -> FastAPI:
             items = memory.list(limit=limit, category=category)
         return {"count": len(items), "memories": [_item(i) for i in items]}
 
-    @app.post("/memory", response_model=MemoryItemResponse, status_code=201,
-              tags=["memory"], dependencies=[Depends(require_auth)])
+    @app.post(
+        "/memory",
+        response_model=MemoryItemResponse,
+        status_code=201,
+        tags=["memory"],
+        dependencies=[Depends(require_auth)],
+    )
     def create_memory(payload: MemoryCreateRequest) -> MemoryItemResponse:
         """Store a long-term memory."""
         item = svc().memory.add(
@@ -182,8 +208,12 @@ def create_app(services: Services | None = None) -> FastAPI:
         )
         return MemoryItemResponse(**_item(item))
 
-    @app.delete("/memory/{memory_id}", status_code=204, tags=["memory"],
-                dependencies=[Depends(require_auth)])
+    @app.delete(
+        "/memory/{memory_id}",
+        status_code=204,
+        tags=["memory"],
+        dependencies=[Depends(require_auth)],
+    )
     def delete_memory(memory_id: int) -> Response:
         """Delete one memory."""
         if not svc().memory.delete(memory_id):
@@ -219,8 +249,9 @@ def create_app(services: Services | None = None) -> FastAPI:
 
     # --- logs ---------------------------------------------------------------
 
-    @app.get("/logs", response_model=list[LogEntry], tags=["logs"],
-             dependencies=[Depends(require_auth)])
+    @app.get(
+        "/logs", response_model=list[LogEntry], tags=["logs"], dependencies=[Depends(require_auth)]
+    )
     def logs(limit: int = Query(50, ge=1, le=500)) -> list[LogEntry]:
         """Recent tool executions from the audit trail."""
         rows = svc().executions.recent(limit)

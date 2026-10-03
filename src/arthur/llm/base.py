@@ -28,10 +28,14 @@ class LLMTimeoutError(LLMError):
     """The request exceeded the configured timeout."""
 
 
+#: The three roles accepted by the LLM chat protocol.
+ChatRole = Literal["system", "user", "assistant"]
+
+
 class ChatMessage(BaseModel):
     """One chat message."""
 
-    role: Literal["system", "user", "assistant"]
+    role: ChatRole
     content: str
 
 

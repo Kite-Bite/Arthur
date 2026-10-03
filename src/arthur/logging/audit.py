@@ -12,10 +12,11 @@ import logging
 from typing import TYPE_CHECKING
 
 from arthur.database.models import ToolExecution
-from arthur.execution.types import AuditSink, ExecutionRecord
+from arthur.execution.types import ExecutionRecord
+from arthur.security.permissions import PermissionLevel
 
 if TYPE_CHECKING:  # pragma: no cover
-    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.orm import Session, sessionmaker
 
 logger = logging.getLogger("arthur.audit")
 
@@ -27,7 +28,7 @@ class AuditLogger:
     the operation it is observing, and the log file remains a fallback trail.
     """
 
-    def __init__(self, session_factory: sessionmaker[object] | None = None) -> None:
+    def __init__(self, session_factory: sessionmaker[Session] | None = None) -> None:
         self._session_factory = session_factory
 
     def __call__(self, record: ExecutionRecord) -> None:
@@ -47,14 +48,14 @@ class AuditLogger:
         if self._session_factory is None:
             return
         try:
-            with self._session_factory() as session:  # type: ignore[operator]
+            with self._session_factory() as session:
                 session.add(
                     ToolExecution(
                         request_id=record.request_id,
                         request=record.request,
                         tool_name=record.tool_name,
                         arguments=record.arguments,
-                        permission=record.permission,
+                        permission=PermissionLevel(record.permission).name,
                         confirmed=record.confirmed,
                         status=record.status,
                         result_summary=record.result_summary,

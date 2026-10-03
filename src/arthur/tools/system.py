@@ -46,7 +46,7 @@ class SystemInfoTool(Tool):
     def run(self, args: SystemInfoArgs, ctx: ToolContext) -> ToolResult:
         os_release: dict[str, str] = {}
         try:
-            os_release = dict(platform.freedesktop_os_release())  # type: ignore[assignment]
+            os_release = dict(platform.freedesktop_os_release())
         except (OSError, AttributeError):  # pragma: no cover
             pass
         data: dict[str, Any] = {
@@ -60,7 +60,8 @@ class SystemInfoTool(Tool):
             "cpu_physical": psutil.cpu_count(logical=False),
             "boot_time": psutil.boot_time(),
         }
-        return ToolResult(summary=f"{data['os']} {data['os_version']} on {data['hostname']}", data=data)
+        summary = f"{data['os']} {data['os_version']} on {data['hostname']}"
+        return ToolResult(summary=summary, data=data)
 
 
 class CpuInfoArgs(BaseModel):
@@ -117,9 +118,7 @@ class MemoryInfoTool(Tool):
             "ram_total_bytes": vm.total,
             "ram_available_bytes": vm.available,
         }
-        return ToolResult(
-            summary=f"RAM {data['ram_total']} ({vm.percent}% used)", data=data
-        )
+        return ToolResult(summary=f"RAM {data['ram_total']} ({vm.percent}% used)", data=data)
 
 
 class DiskUsageArgs(BaseModel):
@@ -212,11 +211,17 @@ class ProcessListTool(Tool):
         except psutil.Error as exc:
             raise ToolError(f"cannot enumerate processes: {exc}") from exc
 
-        rows.sort(key=lambda r: (r["cpu_percent"] if sort_key == "cpu" else r["memory_rss_bytes"]), reverse=True)
+        rows.sort(
+            key=lambda r: r["cpu_percent"] if sort_key == "cpu" else r["memory_rss_bytes"],
+            reverse=True,
+        )
         top = rows[: args.limit]
         for row in top:
             row.pop("memory_rss_bytes", None)
-        return ToolResult(summary=f"top {len(top)} processes by {sort_key}", data={"processes": top})
+        return ToolResult(
+            summary=f"top {len(top)} processes by {sort_key}",
+            data={"processes": top},
+        )
 
 
 class NetworkInfoArgs(BaseModel):
@@ -233,7 +238,9 @@ class NetworkInfoTool(Tool):
         interfaces: dict[str, list[str]] = {}
         for name, addrs in psutil.net_if_addrs().items():
             interfaces[name] = [
-                f"{a.family.name}: {a.address}" for a in addrs if a.family.name in {"AF_INET", "AF_INET6"}
+                f"{a.family.name}: {a.address}"
+                for a in addrs
+                if a.family.name in {"AF_INET", "AF_INET6"}
             ]
         io = psutil.net_io_counters()
         connections: int | None = None

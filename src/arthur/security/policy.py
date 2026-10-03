@@ -37,9 +37,11 @@ class SecurityPolicy:
     def __init__(self, config: SecurityConfig) -> None:
         self.config = config
         self.paths = PathPolicy(config)
-        self._tool_overrides: dict[str, PermissionLevel] = {
-            name: PermissionLevel.parse(level) for name, level in config.tool_overrides.items()
-        }
+
+    def _override_for(self, name: str) -> PermissionLevel | None:
+        """Read a per-tool override from live configuration (if any)."""
+        raw = self.config.tool_overrides.get(name)
+        return PermissionLevel.parse(raw) if raw is not None else None
 
     def evaluate(
         self,
@@ -57,9 +59,10 @@ class SecurityPolicy:
         if name == "run_command":
             return self._evaluate_command(tool, args, args_dict)
 
-        level = self._tool_overrides.get(name, tool.permission_for(args))
+        override = self._override_for(name)
+        level = tool.permission_for(args) if override is None else override
 
-        violation = self._path_violation(args_dict)
+        violation = self._path_violation(args_dict, deletable=tool.destructive)
         if violation is not None:
             return PermissionDecision.deny(level, violation)
 
@@ -94,9 +97,8 @@ class SecurityPolicy:
         args: BaseModel,
         args_dict: dict[str, Any],
     ) -> PermissionDecision:
-        base_level = self._tool_overrides.get(
-            "run_command", tool.permission_for(args)
-        )
+        override = self._override_for("run_command")
+        base_level = tool.permission_for(args) if override is None else override
 
         if not self.config.default_shell_access:
             return PermissionDecision.deny(
@@ -136,15 +138,22 @@ class SecurityPolicy:
             return PermissionDecision.allow(
                 PermissionLevel.SAFE, confirm=False, reason=f"{command!r} is a read-only command"
             )
-        level = PermissionLevel.SAFE if not self.config.require_confirmation else PermissionLevel.CONFIRM
+        level = (
+            PermissionLevel.SAFE
+            if not self.config.require_confirmation
+            else PermissionLevel.CONFIRM
+        )
         return self._decision_for_level(f"run_command:{command}", level)
 
-    def _path_violation(self, args_dict: dict[str, Any]) -> str | None:
+    def _path_violation(self, args_dict: dict[str, Any], *, deletable: bool = False) -> str | None:
         for key in PATH_ARG_KEYS:
             value = args_dict.get(key)
             if isinstance(value, str) and value:
                 try:
-                    self.paths.resolve(value)
+                    if deletable and key in {"path", "target", "directory", "dir", "root"}:
+                        self.paths.check_deletable(value)
+                    else:
+                        self.paths.resolve(value)
                 except PathViolation as exc:
                     return f"{key}: {exc.reason}"
         return None

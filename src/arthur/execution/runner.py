@@ -53,9 +53,7 @@ def validate_argv(argv: Sequence[str]) -> list[str]:
         bad = SHELL_METACHARACTERS.intersection(arg)
         if bad:
             chars = "".join(sorted(bad))
-            raise ValueError(
-                f"argument {arg!r} contains forbidden shell metacharacter(s): {chars}"
-            )
+            raise ValueError(f"argument {arg!r} contains forbidden shell metacharacter(s): {chars}")
     return cleaned
 
 

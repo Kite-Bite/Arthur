@@ -9,19 +9,18 @@ from __future__ import annotations
 
 import time
 import uuid
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
 from pydantic import ValidationError
 
+from arthur.execution.types import AuditSink, ExecutionOutcome, ExecutionRecord
 from arthur.security.confirmation import ConfirmationCallback, ConfirmationRequest, approve, deny
 from arthur.security.permissions import PermissionLevel
 from arthur.security.policy import SecurityPolicy
 from arthur.tools.base import Tool, ToolContext, ToolResult
 from arthur.tools.registry import ToolRegistry
-from arthur.execution.types import AuditSink, ExecutionOutcome, ExecutionRecord
 
 ConfirmationMode = ConfirmationCallback | bool | None
 
@@ -101,17 +100,24 @@ class ToolExecutor:
             return finish(
                 "unknown_tool",
                 permission=PermissionLevel.DENIED,
-                error=f"unknown tool {tool_name!r}; available: "
-                f"{', '.join(self.registry.names())}",
+                error=f"unknown tool {tool_name!r}; available: {', '.join(self.registry.names())}",
             )
 
         # 2. Argument validation --------------------------------------------
+        known_fields = set(tool.args_model.model_fields)
+        unexpected = sorted(set(arguments or {}) - known_fields)
+        if unexpected:
+            return finish(
+                "invalid_args",
+                permission=PermissionLevel.DENIED,
+                error=f"invalid arguments for {tool_name}: unexpected field(s) "
+                f"{', '.join(unexpected)}",
+            )
         try:
             validated = tool.args_model.model_validate(arguments or {})
         except ValidationError as exc:
             details = "; ".join(
-                f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}"
-                for err in exc.errors()[:5]
+                f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}" for err in exc.errors()[:5]
             )
             return finish(
                 "invalid_args",

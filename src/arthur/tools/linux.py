@@ -43,9 +43,7 @@ class RunCommandTool(Tool):
         security = ctx.config.security
 
         if not security.default_shell_access:
-            raise ToolError(
-                "shell access is disabled (security.default_shell_access=false)"
-            )
+            raise ToolError("shell access is disabled (security.default_shell_access=false)")
         if not COMMAND_NAME_RE.match(args.command):
             raise ToolError(f"invalid command name: {args.command!r}")
         if args.command not in security.allowed_commands:
@@ -67,9 +65,8 @@ class RunCommandTool(Tool):
             timeout=min(args.timeout, 120.0),
             max_output=32_000,
         )
-        summary = (
-            f"$ {args.command} {' '.join(args.args)} -> exit {result.returncode}"
-            + (" (timed out)" if result.timed_out else "")
+        summary = f"$ {args.command} {' '.join(args.args)} -> exit {result.returncode}" + (
+            " (timed out)" if result.timed_out else ""
         )
         return ToolResult(
             ok=not result.timed_out,

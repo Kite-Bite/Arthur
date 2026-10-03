@@ -56,7 +56,8 @@ class GitStatusTool(Tool):
         for line in lines[1:]:
             if not line.strip():
                 continue
-            x, y, name = line[:2], line[2:3], line[3:].strip()
+            x, y = line[0], line[1]
+            name = line[3:].strip()
             if x == "?" or y == "?":
                 untracked += 1
                 state = "untracked"
@@ -118,9 +119,7 @@ class GitLogTool(Tool):
                         "subject": parts[3],
                     }
                 )
-        return ToolResult(
-            summary=f"{len(commits)} commits", data={"commits": commits}
-        )
+        return ToolResult(summary=f"{len(commits)} commits", data={"commits": commits})
 
 
 class GitBranchesArgs(BaseModel):

@@ -27,6 +27,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from arthur.memory.store import MemoryStore
     from arthur.retrieval.service import Retriever
 
+#: The Pydantic model a concrete tool accepts (e.g. ``ReadFileArgs``).
+
 
 class ToolResult(BaseModel):
     """Uniform result envelope returned by every tool."""
@@ -43,9 +45,7 @@ class ToolResult(BaseModel):
             parts.append(self.summary)
         if self.data is not None:
             try:
-                parts.append(
-                    json.dumps(self.data, indent=2, default=str, ensure_ascii=False)
-                )
+                parts.append(json.dumps(self.data, indent=2, default=str, ensure_ascii=False))
             except (TypeError, ValueError):  # pragma: no cover - defensive
                 parts.append(str(self.data))
         text = "\n".join(parts)
@@ -66,8 +66,13 @@ class ToolContext:
     retrieval: Retriever | None = None
 
 
-class Tool(ABC):
-    """Base class for all executable tools."""
+class Tool[ToolArgs: BaseModel](ABC):
+    """Base class for all executable tools.
+
+    Generic over the tool's argument model so concrete implementations can
+    declare ``run(self, args: ReadFileArgs, ...)`` without violating Liskov
+    substitution. Registries store ``Tool[Any]`` since they hold mixed tools.
+    """
 
     name: ClassVar[str]
     description: ClassVar[str]
@@ -78,8 +83,11 @@ class Tool(ABC):
     args_model: ClassVar[type[BaseModel]]
     result_model: ClassVar[type[BaseModel] | None] = None
     timeout: ClassVar[float] = 60.0
+    #: Destructive tools get the stricter "deletable" path check in policy,
+    #: so deleting an allowed root is refused before any confirmation prompt.
+    destructive: ClassVar[bool] = False
 
-    def permission_for(self, args: BaseModel) -> PermissionLevel:
+    def permission_for(self, args: ToolArgs) -> PermissionLevel:
         """Dynamic permission for this call (default: the declared level)."""
         return type(self).permission
 
@@ -92,7 +100,7 @@ class Tool(ABC):
         }
 
     @abstractmethod
-    def run(self, args: BaseModel, ctx: ToolContext) -> ToolResult:
+    def run(self, args: ToolArgs, ctx: ToolContext) -> ToolResult:
         """Execute the tool with validated arguments.
 
         Raises:

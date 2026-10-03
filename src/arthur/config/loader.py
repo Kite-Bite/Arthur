@@ -125,7 +125,7 @@ def _deep_merge(base: dict[str, Any], overlay: Mapping[str, Any]) -> dict[str, A
     merged = dict(base)
     for key, value in overlay.items():
         if isinstance(value, Mapping) and isinstance(merged.get(key), dict):
-            merged[key] = _deep_merge(merged[key], value)  # type: ignore[arg-type]
+            merged[key] = _deep_merge(merged[key], value)
         else:
             merged[key] = value
     return merged
@@ -178,9 +178,7 @@ def load_config(
     # Within one source, legacy aliases apply first so canonical ARTHUR_*
     # variables take precedence. Matching goes through the known leaf paths so
     # field names containing underscores (max_steps) map correctly.
-    env_map = {
-        f"{ENV_PREFIX}{'_'.join(path.split('.')).upper()}": path for path in leaves
-    }
+    env_map = {f"{ENV_PREFIX}{'_'.join(path.split('.')).upper()}": path for path in leaves}
     for source in (dotenv, environ):
         # False sorts before True, so legacy aliases (key present -> False)
         # are applied first and canonical ARTHUR_* keys win when both set.

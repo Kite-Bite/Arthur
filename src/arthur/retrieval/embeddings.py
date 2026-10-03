@@ -60,9 +60,7 @@ class OllamaEmbedder:
             return []
         payload = list(texts)
         try:
-            response = self._client.post(
-                "/api/embed", json={"model": self.model, "input": payload}
-            )
+            response = self._client.post("/api/embed", json={"model": self.model, "input": payload})
             if response.status_code == 404:
                 return self._embed_legacy(payload)
             response.raise_for_status()
@@ -157,10 +155,7 @@ def _normalize(vector: list[float]) -> list[float]:
 
 
 def _unreachable(host: str, exc: httpx.HTTPError) -> str:
-    return (
-        f"cannot reach Ollama at {host} ({exc.__class__.__name__}); "
-        "is `ollama serve` running?"
-    )
+    return f"cannot reach Ollama at {host} ({exc.__class__.__name__}); is `ollama serve` running?"
 
 
 def _http_detail(response: httpx.Response) -> str:

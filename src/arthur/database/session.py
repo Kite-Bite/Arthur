@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, event
 from sqlalchemy import create_engine as sa_create_engine
-from sqlalchemy import event
+from sqlalchemy.engine import CursorResult, Result
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+
+
+def rowcount(result: Result[Any]) -> int:
+    """Rows affected by a DML statement.
+
+    ``rowcount`` lives on :class:`CursorResult` (what DML actually returns)
+    but ``Session.execute`` is typed as the more general ``Result``.
+    """
+    if isinstance(result, CursorResult):
+        return int(result.rowcount or 0)
+    return 0
+
 
 SessionFactory = sessionmaker[Session]
 

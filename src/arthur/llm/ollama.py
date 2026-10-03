@@ -41,7 +41,9 @@ class OllamaClient:
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str:
-        payload = self._payload(messages, stream=False, max_tokens=max_tokens, temperature=temperature)
+        payload = self._payload(
+            messages, stream=False, max_tokens=max_tokens, temperature=temperature
+        )
         try:
             response = self._client.post("/api/chat", json=payload)
         except httpx.HTTPError as exc:
@@ -61,7 +63,9 @@ class OllamaClient:
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> Iterator[str]:
-        payload = self._payload(messages, stream=True, max_tokens=max_tokens, temperature=temperature)
+        payload = self._payload(
+            messages, stream=True, max_tokens=max_tokens, temperature=temperature
+        )
         try:
             with self._client.stream("POST", "/api/chat", json=payload) as response:
                 if response.status_code >= 400:

@@ -10,17 +10,17 @@ from __future__ import annotations
 from pathlib import Path
 
 from sqlalchemy import Engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from arthur.agent.orchestrator import Agent
 from arthur.config import Config, load_config
 from arthur.database.repos import ConversationRepository, DocumentRepository, ExecutionRepository
 from arthur.database.session import create_engine, create_session_factory, init_db
 from arthur.execution.executor import ToolExecutor
-from arthur.logging.audit import AuditLogger
-from arthur.logging.setup import configure_logging
 from arthur.llm.base import LLMClient
 from arthur.llm.ollama import OllamaClient
+from arthur.logging.audit import AuditLogger
+from arthur.logging.setup import configure_logging
 from arthur.memory.store import MemoryStore
 from arthur.retrieval.embeddings import Embedder, build_embedder
 from arthur.retrieval.service import Retriever
@@ -38,7 +38,7 @@ class Services:
         *,
         config: Config,
         engine: Engine,
-        session_factory: sessionmaker[object],
+        session_factory: sessionmaker[Session],
         llm: LLMClient,
         embedder: Embedder,
         vector_store: VectorStore,
@@ -97,18 +97,12 @@ class Services:
         llm = OllamaClient(cfg.llm)
         registry = default_registry()
         policy = SecurityPolicy(cfg.security)
-        memory = MemoryStore(
-            session_factory, default_importance=cfg.memory.default_importance
-        )
+        memory = MemoryStore(session_factory, default_importance=cfg.memory.default_importance)
         documents = DocumentRepository(session_factory)
         embedder = build_embedder(cfg.retrieval, cfg.llm)
         vector_store = build_vector_store(cfg.retrieval, session_factory)
-        retrieval = Retriever(
-            cfg.retrieval, embedder, vector_store, documents, policy.paths
-        )
-        ctx = ToolContext(
-            config=cfg, paths=policy.paths, memory=memory, retrieval=retrieval
-        )
+        retrieval = Retriever(cfg.retrieval, embedder, vector_store, documents, policy.paths)
+        ctx = ToolContext(config=cfg, paths=policy.paths, memory=memory, retrieval=retrieval)
         executor = ToolExecutor(registry, policy, ctx, audit=audit)
         conversations = ConversationRepository(session_factory)
         executions = ExecutionRepository(session_factory)

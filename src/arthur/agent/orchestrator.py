@@ -16,14 +16,14 @@ import logging
 import time
 import uuid
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
-from arthur.agent.parser import Decision, DecisionParseError, parse_decision
+from arthur.agent.parser import DecisionParseError, parse_decision
 from arthur.agent.types import AgentResult, AgentStep
 from arthur.config.schema import Config
 from arthur.database.repos import ConversationRepository
 from arthur.execution.executor import ConfirmationMode, ToolExecutor
-from arthur.llm.base import ChatMessage, LLMClient, LLMError
+from arthur.llm.base import ChatMessage, ChatRole, LLMClient, LLMError
 from arthur.llm.prompts import build_answer_system_prompt, build_system_prompt
 from arthur.memory.store import MemoryStore
 from arthur.retrieval.citations import sanitize_citations
@@ -99,9 +99,7 @@ class Agent:
 
         try:
             for _step_index in range(self.config.agent.max_steps):
-                raw = self.llm.complete(
-                    messages, max_tokens=self.config.llm.decide_max_tokens
-                )
+                raw = self.llm.complete(messages, max_tokens=self.config.llm.decide_max_tokens)
                 try:
                     decision = parse_decision(raw)
                 except DecisionParseError as exc:
@@ -196,9 +194,7 @@ class Agent:
             result.stopped_reason = "llm_error"
             result.error = str(exc)
             logger.warning("agent run %s failed: %s", request_id, exc)
-            answer = (
-                f"I could not complete that request: {exc}"
-            )
+            answer = f"I could not complete that request: {exc}"
 
         if retrieved_sources and answer:
             cleaned, kept, removed = sanitize_citations(answer, retrieved_sources)
@@ -214,9 +210,7 @@ class Agent:
         result.duration_ms = (time.perf_counter() - started) * 1000
 
         if self.conversations is not None:
-            result.conversation_id = self._persist(
-                conversation_id, request, answer, result
-            )
+            result.conversation_id = self._persist(conversation_id, request, answer, result)
         return result
 
     # --- helpers -----------------------------------------------------------
@@ -234,7 +228,7 @@ class Agent:
             stored = self.conversations.history(
                 conversation_id, limit=self.config.llm.history_messages
             )
-            messages = [ChatMessage(role=r, content=c) for r, c in stored]
+            messages = [ChatMessage(role=cast(ChatRole, r), content=c) for r, c in stored]
             return [*messages, ChatMessage(role="user", content=request)]
         return [ChatMessage(role="user", content=request)]
 
@@ -260,9 +254,7 @@ class Agent:
             logger.debug("indexed source listing failed: %s", exc)
             return []
 
-    def _generate_answer(
-        self, messages: list[ChatMessage], on_token: TokenCallback | None
-    ) -> str:
+    def _generate_answer(self, messages: list[ChatMessage], on_token: TokenCallback | None) -> str:
         answer_messages = [
             ChatMessage(role="system", content=build_answer_system_prompt(self.config)),
             *messages[1:],  # drop the decision-protocol system prompt

@@ -17,10 +17,11 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from arthur.config.schema import RetrievalConfig
 from arthur.database.models import DocumentChunk
+from arthur.database.session import rowcount
 
 
 @dataclass
@@ -63,13 +64,13 @@ class VectorStore(Protocol):
 class SqliteVectorStore:
     """Built-in store: DocumentChunk rows + NumPy dot-product ranking."""
 
-    def __init__(self, session_factory: sessionmaker[object]) -> None:
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._sf = session_factory
 
     def add(self, items: Sequence[VectorItem]) -> int:
         if not items:
             return 0
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             for item in items:
                 session.merge(
                     DocumentChunk(
@@ -88,7 +89,7 @@ class SqliteVectorStore:
     def query(self, vector: Sequence[float], k: int) -> list[VectorHit]:
         if k <= 0:
             return []
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             rows = session.execute(
                 select(
                     DocumentChunk.id,
@@ -106,9 +107,9 @@ class SqliteVectorStore:
         query = np.asarray(vector, dtype=np.float32)
         if query.size != dimensions or dimensions == 0:
             return []
-        matrix = np.vstack(
-            [_from_blob(row.embedding, dimensions) for row in rows]
-        ).astype(np.float32)
+        matrix = np.vstack([_from_blob(row.embedding, dimensions) for row in rows]).astype(
+            np.float32
+        )
         scores = matrix @ query
         order = np.argsort(scores)[::-1][:k]
         return [
@@ -124,15 +125,13 @@ class SqliteVectorStore:
         ]
 
     def delete_source(self, source: str) -> int:
-        with self._sf() as session:  # type: ignore[operator]
-            result = session.execute(
-                delete(DocumentChunk).where(DocumentChunk.source == source)
-            )
+        with self._sf() as session:
+            result = session.execute(delete(DocumentChunk).where(DocumentChunk.source == source))
             session.commit()
-            return int(result.rowcount or 0)
+            return rowcount(result)
 
     def count(self) -> int:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             return int(session.execute(select(func.count(DocumentChunk.id))).scalar() or 0)
 
 
@@ -141,7 +140,7 @@ class ChromaVectorStore:
 
     def __init__(self, path: str) -> None:
         try:
-            import chromadb  # type: ignore[import-not-found]
+            import chromadb
         except ImportError as exc:  # pragma: no cover - optional dependency
             raise RuntimeError(
                 "ChromaDB backend requested but chromadb is not installed; "
@@ -158,9 +157,7 @@ class ChromaVectorStore:
             ids=[i.id for i in items],
             documents=[i.text for i in items],
             embeddings=[i.embedding for i in items],
-            metadatas=[
-                {"source": i.source, "chunk_index": i.chunk_index, **i.meta} for i in items
-            ],
+            metadatas=[{"source": i.source, "chunk_index": i.chunk_index, **i.meta} for i in items],
         )
         return len(items)
 
@@ -199,7 +196,7 @@ class ChromaVectorStore:
 
 
 def build_vector_store(
-    config: RetrievalConfig, session_factory: sessionmaker[object]
+    config: RetrievalConfig, session_factory: sessionmaker[Session]
 ) -> VectorStore:
     """Construct the configured vector backend."""
     if config.backend == "chroma":

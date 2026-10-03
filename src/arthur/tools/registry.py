@@ -6,6 +6,12 @@ from typing import Any
 
 from arthur.tools.base import Tool
 
+#: The registry defines a ``list`` method, so ``list[...]`` annotations inside
+#: the class body would resolve to that method. Module aliases avoid it.
+ToolList = list[Tool]
+NameList = list[str]
+SchemaList = list[dict[str, Any]]
+
 
 class ToolRegistry:
     """Name-keyed registry of tool instances."""
@@ -31,14 +37,14 @@ class ToolRegistry:
             raise KeyError(f"unknown tool: {name!r}")
         return tool
 
-    def list(self) -> list[Tool]:
+    def list(self) -> ToolList:
         """All tools, sorted by name for stable prompts and output."""
         return [self._tools[name] for name in sorted(self._tools)]
 
-    def names(self) -> list[str]:
+    def names(self) -> NameList:
         return sorted(self._tools)
 
-    def schemas(self) -> list[dict[str, Any]]:
+    def schemas(self) -> SchemaList:
         return [tool.schema() for tool in self.list()]
 
     def __len__(self) -> int:

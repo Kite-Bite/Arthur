@@ -20,9 +20,7 @@ app = typer.Typer(
 @app.callback(invoke_without_command=True)
 def _root(
     ctx: typer.Context,
-    config: Path | None = typer.Option(
-        None, "--config", "-c", help="Path to config.toml"
-    ),
+    config: Path | None = typer.Option(None, "--config", "-c", help="Path to config.toml"),
     version: bool = typer.Option(False, "--version", help="Show version and exit"),
 ) -> None:
     """Arthur CLI. With no subcommand, starts the interactive chat."""

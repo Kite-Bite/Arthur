@@ -9,7 +9,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import sessionmaker
 
 from arthur.config.schema import RetrievalConfig
 from arthur.database.repos import DocumentRepository

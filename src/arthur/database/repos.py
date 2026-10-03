@@ -5,20 +5,20 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from arthur.database.models import Conversation, DocumentRecord, Message, ToolExecution, utcnow
-from arthur.execution.types import ExecutionRecord
+from arthur.database.session import rowcount
 
 
 class ConversationRepository:
     """Chat history persistence (the short-term memory layer)."""
 
-    def __init__(self, session_factory: sessionmaker[object]) -> None:
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._sf = session_factory
 
     def create(self, title: str | None = None) -> Conversation:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             conversation = Conversation(id=_new_id(), title=title)
             session.add(conversation)
             session.commit()
@@ -26,11 +26,11 @@ class ConversationRepository:
             return conversation
 
     def get(self, conversation_id: str) -> Conversation | None:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             return session.get(Conversation, conversation_id)
 
     def add_message(self, conversation_id: str, role: str, content: str) -> Message:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             conversation = session.get(Conversation, conversation_id)
             if conversation is None:
                 raise KeyError(f"unknown conversation: {conversation_id}")
@@ -41,11 +41,9 @@ class ConversationRepository:
             session.refresh(message)
             return message
 
-    def history(
-        self, conversation_id: str, limit: int = 20
-    ) -> list[tuple[str, str]]:
+    def history(self, conversation_id: str, limit: int = 20) -> list[tuple[str, str]]:
         """Return (role, content) pairs, oldest first, capped at ``limit``."""
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             rows = session.execute(
                 select(Message)
                 .where(Message.conversation_id == conversation_id)
@@ -56,7 +54,7 @@ class ConversationRepository:
         return list(reversed(messages))
 
     def recent(self, limit: int = 20) -> list[Conversation]:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             return list(
                 session.execute(
                     select(Conversation).order_by(Conversation.updated_at.desc()).limit(limit)
@@ -67,21 +65,19 @@ class ConversationRepository:
 class ExecutionRepository:
     """Read side of the audit trail (``arthur logs`` / ``GET /logs``)."""
 
-    def __init__(self, session_factory: sessionmaker[object]) -> None:
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._sf = session_factory
 
     def recent(self, limit: int = 20) -> list[ToolExecution]:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             return list(
                 session.execute(
-                    select(ToolExecution)
-                    .order_by(ToolExecution.id.desc())
-                    .limit(limit)
+                    select(ToolExecution).order_by(ToolExecution.id.desc()).limit(limit)
                 ).scalars()
             )
 
     def since(self, moment: datetime) -> list[ToolExecution]:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             return list(
                 session.execute(
                     select(ToolExecution)
@@ -91,7 +87,7 @@ class ExecutionRepository:
             )
 
     def by_request(self, request_id: str) -> list[ToolExecution]:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             return list(
                 session.execute(
                     select(ToolExecution)
@@ -101,14 +97,14 @@ class ExecutionRepository:
             )
 
     def count(self) -> int:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             return int(session.execute(select(func.count(ToolExecution.id))).scalar() or 0)
 
 
 class DocumentRepository:
     """Metadata for indexed documents (chunks live in the vector store)."""
 
-    def __init__(self, session_factory: sessionmaker[object]) -> None:
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._sf = session_factory
 
     def upsert(
@@ -121,7 +117,7 @@ class DocumentRepository:
         mtime: float,
         chunk_count: int,
     ) -> DocumentRecord:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             record = session.execute(
                 select(DocumentRecord).where(DocumentRecord.path == path)
             ).scalar_one_or_none()
@@ -139,16 +135,16 @@ class DocumentRepository:
             return record
 
     def list_all(self) -> list[DocumentRecord]:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             return list(
                 session.execute(select(DocumentRecord).order_by(DocumentRecord.path)).scalars()
             )
 
     def delete(self, path: str) -> bool:
-        with self._sf() as session:  # type: ignore[operator]
+        with self._sf() as session:
             result = session.execute(delete(DocumentRecord).where(DocumentRecord.path == path))
             session.commit()
-            return bool(result.rowcount)
+            return rowcount(result) > 0
 
 
 def _new_id() -> str:

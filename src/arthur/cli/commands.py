@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -78,7 +79,7 @@ def _run_system_tool(command: str, config: Path | None) -> None:
 
 for _name in _SYSTEM_MAP:
 
-    def _make(name: str):
+    def _make(name: str) -> Callable[..., None]:
         def _cmd(
             config: Path | None = typer.Option(None, "--config", "-c", help="Config file"),
         ) -> None:
@@ -106,9 +107,7 @@ def memory_add(
     services = Services.create(config)
     try:
         item = services.memory.add(text, category=category, importance=importance)
-        console.print(
-            f"[green]stored[/green] memory #{item.id} in category '{item.category}'"
-        )
+        console.print(f"[green]stored[/green] memory #{item.id} in category '{item.category}'")
     finally:
         services.close()
 
@@ -222,9 +221,7 @@ def documents_search(
     """Semantic search over indexed documents."""
     services = Services.create(config)
     try:
-        outcome = services.executor.execute(
-            "search_documents", {"query": query, "limit": limit}
-        )
+        outcome = services.executor.execute("search_documents", {"query": query, "limit": limit})
         if outcome.status != "success":
             console.print(f"[red]{outcome.status}:[/red] {outcome.record.error}")
             raise typer.Exit(code=1)
@@ -280,8 +277,7 @@ def tools_show(
         if tool is None:
             console.print(f"[red]unknown tool:[/red] {name}")
             raise typer.Exit(code=1)
-        console.print(f"[bold]{tool.name}[/bold] - {tool.permission.name} "
-                      f"(risk: {tool.risk})")
+        console.print(f"[bold]{tool.name}[/bold] - {tool.permission.name} (risk: {tool.risk})")
         console.print(tool.description)
         console.print_json(json.dumps(tool.schema()["parameters"], default=str))
     finally:
@@ -358,7 +354,11 @@ def _doctor(
     try:
         health = services.health()
         rows = [
-            ("ollama", "ok" if health["llm_reachable"] else "UNAVAILABLE", str(health["llm_detail"])),
+            (
+                "ollama",
+                "ok" if health["llm_reachable"] else "UNAVAILABLE",
+                str(health["llm_detail"]),
+            ),
             ("model", "ok" if health["model_available"] else "MISSING", str(health["model"])),
             ("tools", "ok", f"{health['tools']} registered"),
             ("memory", "ok", f"{health['memories']} entries"),

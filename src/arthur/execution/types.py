@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from arthur.security.confirmation import ConfirmationRequest
 from arthur.security.permissions import PermissionLevel
@@ -49,12 +49,18 @@ class ExecutionOutcome(BaseModel):
     result: ToolResult | None = None
     request: ConfirmationRequest | None = None
 
+    # mypy issue #1362: decorated properties are unsupported; pydantic's docs
+    # recommend this exact ignore (see pydantic.fields.computed_field).
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def status(self) -> ExecutionStatus:
+        """Shortcut to ``record.status`` (serialized for API consumers)."""
         return self.record.status
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def ok(self) -> bool:
+        """True only for a fully successful execution."""
         return self.record.status == "success"
 
     def observation(self) -> str:
