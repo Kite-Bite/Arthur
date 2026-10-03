@@ -48,6 +48,7 @@ class ToolExecutor:
         arguments: dict[str, Any],
         *,
         request_id: str | None = None,
+        request_text: str | None = None,
         confirm: ConfirmationMode = None,
     ) -> ExecutionOutcome:
         """Run one tool invocation through the full security pipeline.
@@ -56,6 +57,7 @@ class ToolExecutor:
             tool_name: Registered tool name.
             arguments: Raw arguments (validated against the tool's schema).
             request_id: Correlates audit records across one user request.
+            request_text: The user request that motivated this call (audit).
             confirm: Confirmation behaviour - a callback (interactive UI),
                 ``True`` (approve all), ``False`` (decline all), or ``None``
                 (leave confirmation unresolved and report it as pending).
@@ -76,6 +78,7 @@ class ToolExecutor:
             duration = (time.perf_counter() - started) * 1000
             record = ExecutionRecord(
                 request_id=request_id,
+                request=(request_text or None) and request_text[:500],
                 tool_name=tool_name,
                 arguments=args if args is not None else dict(arguments or {}),
                 permission=permission,

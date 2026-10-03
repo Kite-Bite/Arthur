@@ -27,6 +27,7 @@ class ExecutionRecord(BaseModel):
     """One auditable tool execution (persisted and logged)."""
 
     request_id: str | None = None
+    request: str | None = None
     tool_name: str
     arguments: dict[str, Any] = Field(default_factory=dict)
     permission: PermissionLevel = PermissionLevel.SAFE

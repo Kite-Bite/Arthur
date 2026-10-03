@@ -82,6 +82,7 @@ class ToolExecution(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
     request_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    request: Mapped[str | None] = mapped_column(Text, nullable=True)
     tool_name: Mapped[str] = mapped_column(String(64), index=True)
     arguments: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     permission: Mapped[str] = mapped_column(String(16), default="SAFE")

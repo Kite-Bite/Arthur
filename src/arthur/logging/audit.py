@@ -51,6 +51,7 @@ class AuditLogger:
                 session.add(
                     ToolExecution(
                         request_id=record.request_id,
+                        request=record.request,
                         tool_name=record.tool_name,
                         arguments=record.arguments,
                         permission=record.permission,
