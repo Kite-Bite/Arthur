@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from arthur.config.schema import SecurityConfig
+from arthur.config.schema import DENIED_COMMAND_TOKENS, SecurityConfig
 from arthur.security.paths import PathPolicy, PathViolation
 from arthur.security.permissions import PermissionDecision, PermissionLevel
 
@@ -120,6 +120,11 @@ class SecurityPolicy:
         subcommands = self.config.allowed_commands[command]
         argv = [str(a) for a in args_dict.get("args") or []]
         positionals = [a for a in argv if not a.startswith("-")]
+        if positionals and set(positionals) & DENIED_COMMAND_TOKENS:
+            banned = ", ".join(sorted(set(positionals) & DENIED_COMMAND_TOKENS))
+            return PermissionDecision.deny(
+                base_level, f"argument(s) {banned} would modify system state"
+            )
         if subcommands is not None and positionals and positionals[0] not in subcommands:
             return PermissionDecision.deny(
                 base_level,

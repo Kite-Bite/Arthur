@@ -175,13 +175,20 @@ def load_config(
     dotenv = parse_env_file(dotenv_path)
 
     # 4. Environment overlays: dotenv first, then the real environment wins.
+    # Within one source, legacy aliases apply first so canonical ARTHUR_*
+    # variables take precedence. Matching goes through the known leaf paths so
+    # field names containing underscores (max_steps) map correctly.
+    env_map = {
+        f"{ENV_PREFIX}{'_'.join(path.split('.')).upper()}": path for path in leaves
+    }
     for source in (dotenv, environ):
-        for key, raw in source.items():
-            target = LEGACY_ENV_MAP.get(key)
+        # False sorts before True, so legacy aliases (key present -> False)
+        # are applied first and canonical ARTHUR_* keys win when both set.
+        ordered = sorted(source.items(), key=lambda kv: kv[0] not in LEGACY_ENV_MAP)
+        for key, raw in ordered:
+            target = LEGACY_ENV_MAP.get(key) or env_map.get(key)
             if target is None:
-                if not key.startswith(ENV_PREFIX):
-                    continue
-                target = key[len(ENV_PREFIX) :].lower().replace("_", ".")
+                continue
             if target in leaves:
                 _set_path(merged, target, _coerce(raw, leaves[target]))
 

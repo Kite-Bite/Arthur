@@ -63,6 +63,17 @@ DEFAULT_ALLOWED_COMMANDS: dict[str, list[str] | None] = {
     "whoami": None,
 }
 
+#: Verbs that mutate state; never allowed as positional arguments to
+#: allow-listed commands (defence in depth beyond the sub-command allow-list).
+DENIED_COMMAND_TOKENS: frozenset[str] = frozenset(
+    {
+        "set", "add", "del", "delete", "replace", "change", "remove", "rm",
+        "restart", "stop", "start", "disable", "enable", "kill", "killall",
+        "shutdown", "reboot", "poweroff", "halt", "format", "mkfs", "wipe",
+        "truncate", "chmod", "chown", "chgrp", "mount", "umount", "sync",
+    }
+)
+
 # Commands that are read-only and run without confirmation by default.
 DEFAULT_SAFE_COMMANDS: list[str] = list(DEFAULT_ALLOWED_COMMANDS)
 
