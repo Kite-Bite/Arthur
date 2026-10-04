@@ -316,7 +316,6 @@ timeout_seconds = 180
 [agent]
 max_steps = 6                  # decide → act budget
 auto_retrieve = true           # ground answers in indexed passages
-auto_retrieve_min_score = 0.6  # skip irrelevant passages
 
 [security]
 default_shell_access = false   # keep false unless you mean it
@@ -326,12 +325,18 @@ allowed_roots = ["/home/you/projects"]
 [retrieval]
 backend = "sqlite"             # or "chroma" (uv sync --extra chroma)
 embedder = "ollama"            # or "hash" (offline/tests)
+auto_retrieve_min_score = 0.5  # cosine floor for auto-injected passages
 ```
 
 Every field also takes an environment variable: `ARTHUR_<SECTION>_<FIELD>`, e.g.
 `ARTHUR_LLM_MODEL=llama3.2:3b`, `ARTHUR_SECURITY_ALLOWED_ROOTS=/srv/app`.
 `OLLAMA_HOST` and `MODEL_NAME` are supported as familiar aliases.
 See [`.env.example`](.env.example).
+
+Unknown keys in `config.toml` are rejected at load time. Putting a retrieval
+setting under the wrong section used to load cleanly and quietly do nothing;
+now it fails with the offending path, e.g. `agent.auto_retrieve_min_score:
+Extra inputs are not permitted`.
 
 ---
 

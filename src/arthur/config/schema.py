@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # --- Defaults shared with the security module ---------------------------------
 
@@ -109,6 +109,10 @@ DEFAULT_SAFE_COMMANDS: list[str] = list(DEFAULT_ALLOWED_COMMANDS)
 class LLMConfig(BaseModel):
     """Local LLM connection and sampling settings."""
 
+    #: Reject unknown keys: a typo, or a setting placed in the wrong
+    #: section, would otherwise be a silent no-op that never takes effect.
+    model_config = ConfigDict(extra="forbid")
+
     provider: Literal["ollama"] = "ollama"
     host: str = "http://localhost:11434"
     model: str = "llama3.2:1b"
@@ -133,6 +137,10 @@ class LLMConfig(BaseModel):
 class AgentConfig(BaseModel):
     """Agent loop behaviour."""
 
+    #: Reject unknown keys: a typo, or a setting placed in the wrong
+    #: section, would otherwise be a silent no-op that never takes effect.
+    model_config = ConfigDict(extra="forbid")
+
     max_steps: int = 6
     max_repairs: int = 2
     memory_injection: bool = True
@@ -146,6 +154,10 @@ class AgentConfig(BaseModel):
 
 class SecurityConfig(BaseModel):
     """Security policy. Safe defaults: no shell, confirmation for risky tools."""
+
+    #: Reject unknown keys: a typo, or a setting placed in the wrong
+    #: section, would otherwise be a silent no-op that never takes effect.
+    model_config = ConfigDict(extra="forbid")
 
     require_confirmation: bool = True
     # Gates the controlled `run_command` tool entirely. Arbitrary shell stays
@@ -188,6 +200,10 @@ class SecurityConfig(BaseModel):
 class MemoryConfig(BaseModel):
     """Persistent memory storage."""
 
+    #: Reject unknown keys: a typo, or a setting placed in the wrong
+    #: section, would otherwise be a silent no-op that never takes effect.
+    model_config = ConfigDict(extra="forbid")
+
     database: str = "~/.local/share/arthur/arthur.db"
     auto_recall: bool = True
     recall_limit: int = 3
@@ -197,6 +213,10 @@ class MemoryConfig(BaseModel):
 class RetrievalConfig(BaseModel):
     """RAG ingestion, chunking, embeddings and vector storage."""
 
+    #: Reject unknown keys: a typo, or a setting placed in the wrong
+    #: section, would otherwise be a silent no-op that never takes effect.
+    model_config = ConfigDict(extra="forbid")
+
     backend: Literal["sqlite", "chroma"] = "sqlite"
     embedder: Literal["ollama", "hash"] = "ollama"
     chroma_path: str = "~/.local/share/arthur/chroma"
@@ -205,9 +225,17 @@ class RetrievalConfig(BaseModel):
     max_passages: int = 5
     #: Cosine floor for passages injected up-front by the agent. Below it a
     #: passage is likely irrelevant; injecting it wastes context and invites a
-    #: citation that has nothing to do with the question. Measured with
-    #: nomic-embed-text: ~0.7 for on-topic, ~0.3-0.5 for unrelated queries.
-    auto_retrieve_min_score: float = 0.6
+    #: citation that has nothing to do with the question.
+    #:
+    #: Measured with nomic-embed-text against one indexed runbook: 0.62 for a
+    #: keyword overlap, 0.62 for a related question, 0.56 for a paraphrase,
+    #: 0.55 for a plain "when does X happen", 0.43 for an unrelated topic.
+    #: A 0.6 floor therefore sat above every natural phrasing and quietly
+    #: switched auto-retrieval off - the agent then answered from model
+    #: knowledge with no citation. 0.5 admits the real questions while still
+    #: rejecting the unrelated case. Similarities drift upward as a corpus
+    #: grows, so raise this if a bigger index starts injecting noise.
+    auto_retrieve_min_score: float = 0.5
     max_file_bytes: int = 2_000_000
     formats: list[str] = Field(
         default_factory=lambda: [
@@ -232,6 +260,10 @@ class RetrievalConfig(BaseModel):
 class LoggingConfig(BaseModel):
     """Logging behaviour. File logging defaults into the Arthur data dir."""
 
+    #: Reject unknown keys: a typo, or a setting placed in the wrong
+    #: section, would otherwise be a silent no-op that never takes effect.
+    model_config = ConfigDict(extra="forbid")
+
     level: str = "INFO"
     format: Literal["text", "json"] = "text"
     file: str | None = "~/.local/share/arthur/arthur.log"
@@ -240,6 +272,10 @@ class LoggingConfig(BaseModel):
 class ApiConfig(BaseModel):
     """FastAPI server settings. Loopback-only unless explicitly changed."""
 
+    #: Reject unknown keys: a typo, or a setting placed in the wrong
+    #: section, would otherwise be a silent no-op that never takes effect.
+    model_config = ConfigDict(extra="forbid")
+
     host: str = "127.0.0.1"
     port: int = 8420
     token: str | None = None
@@ -247,6 +283,10 @@ class ApiConfig(BaseModel):
 
 class Config(BaseModel):
     """Root configuration object."""
+
+    #: Reject unknown keys: a typo, or a setting placed in the wrong
+    #: section, would otherwise be a silent no-op that never takes effect.
+    model_config = ConfigDict(extra="forbid")
 
     llm: LLMConfig = Field(default_factory=LLMConfig)
     agent: AgentConfig = Field(default_factory=AgentConfig)

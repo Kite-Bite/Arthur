@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pydantic
 import pytest
 
 from arthur.config.loader import load_config, parse_env_file
-from arthur.config.schema import Config
+from arthur.config.schema import Config, RetrievalConfig
 
 
 def test_defaults_when_no_sources(tmp_path: Path) -> None:
@@ -89,6 +90,50 @@ def test_valid_tool_override_is_accepted(tmp_path: Path) -> None:
     cfg = load_config(path=config_file, env={})
 
     assert cfg.security.tool_overrides == {"read_file": "CONFIRM"}
+
+
+def test_unknown_config_key_is_rejected(tmp_path: Path) -> None:
+    """A misspelled or misfiled key must fail loudly, never silently no-op.
+
+    ``auto_retrieve_min_score`` is a retrieval setting; putting it under
+    ``[agent]`` used to load cleanly and simply never apply, so the user had
+    no way to know their tuning had no effect.
+    """
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        "[agent]\nmax_steps = 6\nauto_retrieve_min_score = 0.6\n", encoding="utf-8"
+    )
+
+    with pytest.raises(pydantic.ValidationError, match="agent.auto_retrieve_min_score"):
+        load_config(path=config_file, env={})
+
+
+def test_unknown_root_level_key_is_rejected(tmp_path: Path) -> None:
+    config_file = tmp_path / "config.toml"
+    config_file.write_text('modle = "typo"\n', encoding="utf-8")
+
+    with pytest.raises(pydantic.ValidationError, match="modle"):
+        load_config(path=config_file, env={})
+
+
+def test_unknown_environment_variable_is_still_ignored(tmp_path: Path) -> None:
+    """Unrelated ARTHUR_* vars must not fail the load - only config files are strict."""
+    cfg = load_config(path=tmp_path / "none.toml", env={"ARTHUR_NOT_A_SETTING": "x"})
+
+    assert isinstance(cfg, Config)
+
+
+def test_auto_retrieve_floor_admits_real_questions() -> None:
+    """Pinned: 0.6 sat above every natural phrasing and disabled auto-RAG.
+
+    Measured with nomic-embed-text against one indexed runbook: a plain
+    "when does X happen?" scored 0.545 and an unrelated question 0.425, so a
+    0.6 floor rejected the real question, no passage was injected, and the
+    model answered from its own knowledge with no citation. Retune only after
+    measuring against a representative corpus, and update this alongside
+    ``RetrievalConfig``'s comment.
+    """
+    assert RetrievalConfig().auto_retrieve_min_score == 0.5
 
 
 def test_parse_env_file(tmp_path: Path) -> None:
