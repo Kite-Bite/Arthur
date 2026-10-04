@@ -9,7 +9,7 @@ package under `src/`.
 ## Setup
 
 ```bash
-git clone <your-fork> arthur && cd arthur
+git clone git@github.com:Kite-Bite/Arthur.git arthur && cd arthur
 uv sync                    # core deps + dev group (pytest, ruff, mypy)
 uv run arthur doctor       # verifies Ollama, model, tools, database
 ```

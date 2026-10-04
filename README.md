@@ -154,7 +154,7 @@ ollama pull nomic-embed-text  # default embedding model
 ### 2. Install
 
 ```bash
-git clone <your-fork> arthur && cd arthur
+git clone git@github.com:Kite-Bite/Arthur.git arthur && cd arthur
 uv sync                       # adds the `arthur` console script
 uv run arthur doctor          # verifies Ollama, model, tools, DB
 ```
