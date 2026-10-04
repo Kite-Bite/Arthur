@@ -167,9 +167,9 @@ uv run arthur doctor          # verifies Ollama, model, tools, DB
 │ ollama     │ ok     │ ollama 0.18.3 │
 │ model      │ ok     │ llama3.2:1b   │
 │ tools      │ ok     │ 24 registered │
-│ memory     │ ok     │ 3 entries     │
+│ memory     │ ok     │ 4 entries     │
 │ documents  │ ok     │ 1 indexed     │
-│ audit      │ ok     │ 18 records    │
+│ audit      │ ok     │ 22 records    │
 └────────────┴────────┴───────────────┘
 ```
 

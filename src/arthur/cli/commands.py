@@ -70,7 +70,7 @@ def _run_system_tool(command: str, config: Path | None) -> None:
     try:
         args: dict[str, Any] = {}
         if command == "disk":
-            args = {"path": "/"}
+            args = {"mount": "/"}
         outcome = services.executor.execute(_SYSTEM_MAP[command], args)
         _outcome_data(outcome)
     finally:

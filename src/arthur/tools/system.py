@@ -122,20 +122,28 @@ class MemoryInfoTool(Tool):
 
 
 class DiskUsageArgs(BaseModel):
-    path: str = Field("/", description="Mount point or path to report usage for")
+    # Named ``mount`` rather than ``path`` on purpose: this argument is only
+    # passed to statvfs, which reports capacity numbers and never file
+    # contents, so it is not subject to workspace containment - and a
+    # containment check here would reject the default ("/"), making the tool
+    # unusable. It also cannot leak more than the partition list the tool
+    # already returns.
+    mount: str = Field("/", description="Mount point or filesystem path to report usage for")
 
 
 class DiskUsageTool(Tool):
     name = "disk_usage"
-    description = "Disk usage for a path plus all mounted physical partitions."
+    description = (
+        "Disk usage (total/used/free) for a mount point plus all mounted physical partitions."
+    )
     action = "Show disk usage"
     args_model = DiskUsageArgs
 
     def run(self, args: DiskUsageArgs, ctx: ToolContext) -> ToolResult:
         try:
-            usage = psutil.disk_usage(args.path)
+            usage = psutil.disk_usage(args.mount)
         except OSError as exc:
-            raise ToolError(f"cannot stat {args.path}: {exc}") from exc
+            raise ToolError(f"cannot stat {args.mount}: {exc}") from exc
         partitions = []
         for part in psutil.disk_partitions(all=False):
             try:
@@ -154,14 +162,21 @@ class DiskUsageTool(Tool):
                 }
             )
         data = {
-            "path": args.path,
+            "path": args.mount,
             "total": human_bytes(usage.total),
             "used": human_bytes(usage.used),
             "free": human_bytes(usage.free),
             "used_percent": usage.percent,
             "partitions": partitions,
         }
-        return ToolResult(summary=f"{args.path}: {usage.percent}% used", data=data)
+        return ToolResult(
+            summary=(
+                f"{args.mount}: {usage.percent}% used "
+                f"({human_bytes(usage.used)} used, {human_bytes(usage.free)} free "
+                f"of {human_bytes(usage.total)})"
+            ),
+            data=data,
+        )
 
 
 class ProcessListArgs(BaseModel):

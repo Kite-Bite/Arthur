@@ -137,6 +137,26 @@ def test_path_escape_denied(services, tmp_path: Path) -> None:
     assert "escapes allowed roots" in outcome.record.error
 
 
+def test_capacity_report_is_not_a_file_read(services, tmp_path: Path) -> None:
+    """statfs-style arguments must not be subject to workspace containment.
+
+    Regression guard: disk_usage used to call its argument ``path``, so the
+    containment check rejected its own default (``/``) and the tool became
+    unusable - the model then answered with invented numbers. File *reads*
+    stay denied, as the sibling test asserts.
+    """
+    outcome = services.executor.execute("disk_usage", {})
+
+    assert outcome.status == "success"
+    assert outcome.result is not None
+    data = outcome.result.data
+    assert data["used_percent"] >= 0
+    assert data["partitions"]
+
+    still_denied = services.executor.execute("read_file", {"path": "/etc/shadow"})
+    assert still_denied.status == "denied"
+
+
 def test_relative_traversal_denied(services, tmp_path: Path) -> None:
     (tmp_path / "inside.txt").write_text("ok", encoding="utf-8")
 
@@ -144,7 +164,6 @@ def test_relative_traversal_denied(services, tmp_path: Path) -> None:
 
     # Either escapes the root or lands outside it - never readable.
     assert outcome.status == "denied"
-    assert "result" not in (outcome.result.data if outcome.result else {}) or True
     assert outcome.result is None
 
 

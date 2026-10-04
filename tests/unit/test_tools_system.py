@@ -60,7 +60,7 @@ def test_memory_info(ctx: ToolContext) -> None:
 
 
 def test_disk_usage(ctx: ToolContext) -> None:
-    data = DiskUsageTool().run(DiskUsageTool.args_model(path="/"), ctx).data
+    data = DiskUsageTool().run(DiskUsageTool.args_model(mount="/"), ctx).data
     assert data["used_percent"] >= 0
     assert isinstance(data["partitions"], list)
 

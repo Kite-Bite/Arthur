@@ -202,6 +202,9 @@ def build_answer_system_prompt(config: Config) -> str:
             "  from the observations as natural prose or a short bullet list, so the",
             "  user reads an answer rather than a data dump.",
             "- Be concise and concrete. Show real numbers, paths and results from observations.",
+            "- Transcribe numbers exactly as the observation labels them: never swap",
+            "  labels (free is not used), never scale them (KB vs GB), never invent",
+            "  figures. Quote the observation's own sentence if a figure is ambiguous.",
             "- If a tool was denied, declined, or failed, say so honestly; never "
             "pretend it worked.",
             "- Cite documents by copying the exact path of a passage that actually "
