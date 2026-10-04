@@ -98,3 +98,56 @@ def test_indexed_sources_appear_in_system_prompt(
     prompt = llm.calls[0][0].content
     assert "Indexed documents" in prompt
     assert str(corpus / "deploy.md") in prompt
+
+
+def test_passages_are_auto_retrieved_without_the_search_tool(
+    services, scripted, decision, corpus: Path
+) -> None:
+    """A model that never calls search_documents must still get grounded text."""
+    services.executor.execute("index_documents", {"path": str(corpus)})
+    deploy_doc = str(corpus / "deploy.md")
+    llm = scripted(
+        [
+            decision(None),
+            f"Rollback is automatic on failed health checks. [source: {deploy_doc}]",
+        ]
+    )
+
+    result = services.agent.run("How do rollbacks work?")
+
+    assert result.stopped_reason == "answered"
+    injected = [m.content for m in llm.calls[0] if "Retrieved passages" in m.content]
+    assert injected, "auto-retrieval block missing from the first call"
+    assert deploy_doc in injected[0]
+    # The citation came from a real passage, so it survives sanitisation.
+    assert deploy_doc in result.citations
+    assert deploy_doc in result.sources
+
+
+def test_auto_retrieval_can_be_disabled(services, scripted, decision, corpus: Path) -> None:
+    services.executor.execute("index_documents", {"path": str(corpus)})
+    services.config.agent.auto_retrieve = False
+    llm = scripted([decision(None), "answer"])
+
+    services.agent.run("How do rollbacks work?")
+
+    assert not any("Retrieved passages" in m.content for m in llm.calls[0])
+
+
+def test_irrelevant_passages_are_not_injected(services, scripted, decision, corpus: Path) -> None:
+    """Passages below the relevance floor would only invite a bogus citation."""
+    services.executor.execute("index_documents", {"path": str(corpus)})
+    services.config.retrieval.auto_retrieve_min_score = 0.99
+    llm = scripted([decision(None), "answer"])
+
+    services.agent.run("How do rollbacks work?")
+
+    assert not any("Retrieved passages" in m.content for m in llm.calls[0])
+
+
+def test_auto_retrieval_skips_an_empty_index(services, scripted, decision) -> None:
+    llm = scripted([decision(None), "answer"])
+
+    services.agent.run("Anything at all?")
+
+    assert not any("Retrieved passages" in m.content for m in llm.calls[0])

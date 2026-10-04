@@ -131,6 +131,7 @@ class OllamaClient:
         options: dict[str, Any] = {
             "temperature": self.config.temperature if temperature is None else temperature,
             "num_predict": self.config.answer_max_tokens if max_tokens is None else max_tokens,
+            "num_ctx": self.config.num_ctx,
         }
         return {
             "model": self.config.model,

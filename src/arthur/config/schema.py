@@ -114,8 +114,16 @@ class LLMConfig(BaseModel):
     model: str = "llama3.2:1b"
     embedding_model: str = "nomic-embed-text"
     temperature: float = 0.2
+    #: Sampling temperature for the decision step. Decisions are structured
+    #: selections, so they run greedy by default - at non-zero temperature a
+    #: small model sometimes answers instead of calling an obvious tool.
+    decide_temperature: float = 0.0
     timeout_seconds: float = 180.0
     keep_alive: str = "5m"
+    #: Prompt context window handed to Ollama. Must comfortably exceed the
+    #: system prompt (tool schemas + memories) plus the answer budget, or
+    #: generation is truncated with ``done_reason: "length"``.
+    num_ctx: int = 8192
     # Token budgets: the decision step must stay small; answers get more room.
     decide_max_tokens: int = 320
     answer_max_tokens: int = 900
@@ -129,6 +137,11 @@ class AgentConfig(BaseModel):
     max_repairs: int = 2
     memory_injection: bool = True
     memory_injection_limit: int = 3
+    # Retrieve relevant indexed passages before deciding. Small local models
+    # routinely skip the search tool and answer from memory, so grounding is
+    # done up-front; the search tool stays available for follow-up queries.
+    auto_retrieve: bool = True
+    auto_retrieve_limit: int = 4
 
 
 class SecurityConfig(BaseModel):
@@ -170,6 +183,11 @@ class RetrievalConfig(BaseModel):
     chunk_size: int = 800
     chunk_overlap: int = 120
     max_passages: int = 5
+    #: Cosine floor for passages injected up-front by the agent. Below it a
+    #: passage is likely irrelevant; injecting it wastes context and invites a
+    #: citation that has nothing to do with the question. Measured with
+    #: nomic-embed-text: ~0.7 for on-topic, ~0.3-0.5 for unrelated queries.
+    auto_retrieve_min_score: float = 0.6
     max_file_bytes: int = 2_000_000
     formats: list[str] = Field(
         default_factory=lambda: [

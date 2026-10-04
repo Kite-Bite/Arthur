@@ -26,6 +26,8 @@ class ScriptedLLM:
         self._responder = responder
         self._error = error
         self.calls: list[list[ChatMessage]] = []
+        #: Temperature passed to every ``complete`` call, in call order.
+        self.temperatures: list[float | None] = []
 
     @property
     def call_count(self) -> int:
@@ -39,6 +41,7 @@ class ScriptedLLM:
         temperature: float | None = None,
     ) -> str:
         self.calls.append(list(messages))
+        self.temperatures.append(temperature)
         if self._error is not None:
             raise self._error
         if self._responder is not None:

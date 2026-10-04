@@ -18,7 +18,7 @@ import uuid
 from collections.abc import Callable
 from typing import Any, cast
 
-from arthur.agent.parser import DecisionParseError, parse_decision
+from arthur.agent.parser import DecisionParseError, decision_issue, parse_decision
 from arthur.agent.types import AgentResult, AgentStep
 from arthur.config.schema import Config
 from arthur.database.repos import ConversationRepository
@@ -35,6 +35,20 @@ StepCallback = Callable[[AgentStep], None]
 TokenCallback = Callable[[str], None]
 
 OBSERVATION_CAP = 4000
+
+
+def _looks_like_decision(content: str) -> bool:
+    """True when an assistant message is a decision-protocol transcript.
+
+    The answer phase must not be fed our own JSON decisions back - small models
+    then reply in JSON as well. A leading object carrying decision keys counts,
+    including truncated output; prose answers from earlier turns are kept.
+    """
+    stripped = content.lstrip()
+    if not stripped.startswith("{"):
+        return False
+    head = stripped[:400]
+    return any(f'"{key}"' in head for key in ("thought", "tool", "args", "plan"))
 
 
 class Agent:
@@ -94,12 +108,34 @@ class Agent:
         messages = [ChatMessage(role="system", content=system_prompt), *messages]
 
         retrieved_sources: set[str] = set()
+        context = self._auto_retrieve(request)
+        if context is not None:
+            passage_text, sources = context
+            retrieved_sources.update(sources)
+            messages.append(ChatMessage(role="user", content=passage_text))
+            example = sorted(retrieved_sources)[0]
+            messages.append(
+                ChatMessage(
+                    role="user",
+                    content=(
+                        "Use the passages above when they answer the request. To cite one, "
+                        "copy its exact path from the passage into a marker like this: "
+                        f"[source: {example}]. Use the real path, never a placeholder. "
+                        "Otherwise call a tool."
+                    ),
+                )
+            )
+
         repairs = 0
         answer = ""
 
         try:
             for _step_index in range(self.config.agent.max_steps):
-                raw = self.llm.complete(messages, max_tokens=self.config.llm.decide_max_tokens)
+                raw = self.llm.complete(
+                    messages,
+                    max_tokens=self.config.llm.decide_max_tokens,
+                    temperature=self.config.llm.decide_temperature,
+                )
                 try:
                     decision = parse_decision(raw)
                 except DecisionParseError as exc:
@@ -120,8 +156,27 @@ class Agent:
                     )
                     continue
 
+                issue = decision_issue(decision)
+                if issue is not None:
+                    repairs += 1
+                    logger.debug("decision inconsistency %d: %s", repairs, issue)
+                    if repairs > self.config.agent.max_repairs:
+                        result.stopped_reason = "parse_failure"
+                        break
+                    messages.append(ChatMessage(role="assistant", content=raw))
+                    messages.append(
+                        ChatMessage(
+                            role="user",
+                            content=(
+                                f"INVALID ACTION: {issue}. Respond with exactly one valid "
+                                "JSON object following the decision protocol."
+                            ),
+                        )
+                    )
+                    continue
+
                 if decision.tool is None:
-                    answer = self._generate_answer(messages, on_token)
+                    answer = self._generate_answer(messages, on_token, retrieved_sources)
                     result.stopped_reason = "answered"
                     break
 
@@ -179,10 +234,10 @@ class Agent:
                         ),
                     )
                 )
-                answer = self._generate_answer(messages, on_token)
+                answer = self._generate_answer(messages, on_token, retrieved_sources)
             elif result.stopped_reason == "parse_failure":
                 try:
-                    answer = self._generate_answer(messages, on_token)
+                    answer = self._generate_answer(messages, on_token, retrieved_sources)
                 except LLMError:  # pragma: no cover - already degraded
                     answer = ""
                 if not answer:
@@ -254,15 +309,76 @@ class Agent:
             logger.debug("indexed source listing failed: %s", exc)
             return []
 
-    def _generate_answer(self, messages: list[ChatMessage], on_token: TokenCallback | None) -> str:
+    def _auto_retrieve(self, request: str) -> tuple[str, list[str]] | None:
+        """Ground the request in indexed passages before the first decision.
+
+        Small local models frequently skip the ``search_documents`` tool and
+        answer from parametric memory, which produces invented facts. Retrieving
+        up-front fixes that; the tool remains available for follow-up queries.
+
+        Returns:
+            ``(passage_block, sources)`` or ``None`` when disabled/empty.
+        """
+        if not self.config.agent.auto_retrieve or self.retrieval is None:
+            return None
+        try:
+            if self.retrieval.store.count() == 0:
+                return None
+            passages = self.retrieval.search(request, k=self.config.agent.auto_retrieve_limit)
+        except Exception as exc:  # noqa: BLE001 - grounding is best-effort
+            logger.debug("auto retrieval failed: %s", exc)
+            return None
+        floor = self.config.retrieval.auto_retrieve_min_score
+        passages = [passage for passage in passages if passage.score >= floor]
+        if not passages:
+            return None
+        lines = []
+        sources: list[str] = []
+        for i, passage in enumerate(passages, start=1):
+            sources.append(passage.source)
+            snippet = " ".join(passage.text.split())[:600]
+            lines.append(f"{i}. [source: {passage.source}] (score {passage.score:.2f}) {snippet}")
+        block = "## Retrieved passages (local document index)\n" + "\n".join(lines)
+        return block, sources
+
+    def _generate_answer(
+        self,
+        messages: list[ChatMessage],
+        on_token: TokenCallback | None,
+        sources: set[str] | None = None,
+    ) -> str:
+        # The conversation carries our own JSON decisions; echoing them into the
+        # answer context makes small models answer in JSON too. Keep the user
+        # turns and observations, drop the decision transcripts.
+        context = [
+            message
+            for message in messages[1:]
+            if not (message.role == "assistant" and _looks_like_decision(message.content))
+        ]
         answer_messages = [
             ChatMessage(role="system", content=build_answer_system_prompt(self.config)),
-            *messages[1:],  # drop the decision-protocol system prompt
+            *context,
             ChatMessage(
                 role="user",
-                content="Provide the final answer now as plain text (no JSON, no tools).",
+                content=(
+                    "Write the final answer for the user now, as a short prose or "
+                    "bullet-point summary in natural language. Do NOT echo raw JSON, "
+                    "tool names or observation dumps - translate them. No tools."
+                ),
             ),
         ]
+        if sources:
+            answer_messages.append(
+                ChatMessage(
+                    role="user",
+                    content=(
+                        "Your answer draws on retrieved documents. End it with a "
+                        "citation marker for the document you used, written exactly "
+                        "as [source: <path>] using one of these paths: "
+                        + ", ".join(sorted(sources))
+                    ),
+                )
+            )
         if on_token is not None:
             buffer: list[str] = []
             for token in self.llm.stream(

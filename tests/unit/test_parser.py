@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from arthur.agent.parser import Decision, DecisionParseError, parse_decision
+from arthur.agent.parser import (
+    Decision,
+    DecisionParseError,
+    decision_issue,
+    parse_decision,
+)
 
 
 def test_clean_json() -> None:
@@ -61,3 +66,33 @@ def test_invalid_outputs_raise(raw: str) -> None:
 def test_decision_defaults() -> None:
     decision = Decision.model_validate({})
     assert decision.tool is None and decision.args is None and decision.plan == []
+
+
+def test_plan_without_tool_or_answer_is_flagged() -> None:
+    decision = parse_decision('{"plan": ["ls", "/proc"], "tool": null, "answer": null}')
+    issue = decision_issue(decision)
+    assert issue is not None
+    assert "plan" in issue
+
+
+def test_args_without_tool_is_flagged() -> None:
+    decision = parse_decision('{"tool": null, "args": {"path": "."}}')
+    assert decision_issue(decision) is not None
+
+
+def test_tool_and_answer_together_is_flagged() -> None:
+    decision = parse_decision('{"tool": "uptime", "answer": "done"}')
+    assert decision_issue(decision) is not None
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        '{"tool": null, "answer": null}',  # hand off to the answer phase
+        '{"tool": "uptime", "args": {}}',  # normal tool call
+        '{"tool": null, "answer": "plain answer"}',  # direct answer
+        '{"plan": ["x"], "tool": "uptime", "args": {}}',  # plan + tool is fine
+    ],
+)
+def test_consistent_decisions_pass(raw: str) -> None:
+    assert decision_issue(parse_decision(raw)) is None

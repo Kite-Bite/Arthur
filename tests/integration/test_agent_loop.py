@@ -73,6 +73,45 @@ def test_persistent_parse_failure_degrades_gracefully(services, scripted) -> Non
     assert result.answer == "Best effort answer."
 
 
+def test_inconsistent_decision_is_repaired(services, scripted, decision) -> None:
+    """A plan with no tool and no answer carries no instruction - repair it."""
+    planning_noop = (
+        '{"thought": "need info", "plan": ["ls", "/proc"], '
+        '"tool": null, "args": null, "answer": null}'
+    )
+    llm = scripted([planning_noop, decision("system_info"), decision(None), "Grounded."])
+
+    result = services.agent.run("Describe this machine")
+
+    assert result.stopped_reason == "answered"
+    assert result.answer == "Grounded."
+    assert result.used_tools == ["system_info"]
+    assert any("INVALID ACTION" in m.content for m in llm.calls[1])
+
+
+def test_decisions_run_greedy_while_answers_keep_sampling(services, scripted, decision) -> None:
+    """Structured picks should be deterministic; prose may still sample."""
+    llm = scripted([decision("uptime"), decision(None), "Up for a while."])
+
+    services.agent.run("How long has this machine been up?")
+
+    assert llm.temperatures[0] == services.config.llm.decide_temperature
+    assert llm.temperatures[1] == services.config.llm.decide_temperature
+    # The final answer call leaves sampling to the configured temperature.
+    assert llm.temperatures[2] is None
+
+
+def test_repeated_inconsistency_degrades_gracefully(services, scripted) -> None:
+    noop_plan = '{"thought": "hmm", "plan": ["ls"], "tool": null, "args": null, "answer": null}'
+    scripted([noop_plan, noop_plan, noop_plan, "Best effort answer."])
+    services.config.agent.max_repairs = 2
+
+    result = services.agent.run("Describe this machine")
+
+    assert result.stopped_reason == "parse_failure"
+    assert result.answer == "Best effort answer."
+
+
 def test_step_budget_stops_loop_then_answers(services, scripted, decision) -> None:
     services.config.agent.max_steps = 2
     scripted(

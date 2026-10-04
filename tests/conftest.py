@@ -38,6 +38,9 @@ def base_config(tmp_path: Path) -> Config:
     cfg = Config()
     cfg.memory.database = ":memory:"
     cfg.retrieval.embedder = "hash"
+    # Hash embeddings produce tiny, non-comparable scores; keep the agent's
+    # relevance floor off so fixtures exercise the injection path itself.
+    cfg.retrieval.auto_retrieve_min_score = 0.0
     cfg.logging.file = None
     cfg.security.allowed_roots = [str(tmp_path)]
     return cfg

@@ -67,6 +67,35 @@ def _extract_json_object(text: str) -> str:
     raise DecisionParseError("unbalanced JSON object in model output")
 
 
+def decision_issue(decision: Decision) -> str | None:
+    """Semantic consistency problems that structural parsing cannot catch.
+
+    Small models sometimes emit a plan of concrete steps but no tool and no
+    answer, which carries no usable instruction. Reported as a repair signal
+    rather than silently accepted.
+
+    Args:
+        decision: A structurally valid decision.
+
+    Returns:
+        A message to feed back to the model, or ``None`` when consistent.
+    """
+    if decision.tool is None and decision.answer is None and decision.plan:
+        return (
+            "your decision listed a plan but chose no tool and gave no answer; "
+            "either call exactly one tool to carry out the plan, or drop the plan "
+            "and answer directly"
+        )
+    if decision.tool is None and decision.args:
+        return '"args" was set while "tool" was null; args are only valid together with a tool'
+    if decision.tool is not None and decision.answer is not None:
+        return (
+            "both a tool and an answer were provided; pick exactly one - call the "
+            "tool first, the answer comes in a later step"
+        )
+    return None
+
+
 def parse_decision(raw: str) -> Decision:
     """Parse model output into a :class:`Decision`.
 
