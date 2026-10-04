@@ -65,4 +65,11 @@ class ScriptedLLM:
             yield (word + " ") if word else ""
 
     def health(self) -> Health:
-        return Health(reachable=True, detail="scripted", model="scripted", model_available=True)
+        return Health(
+            reachable=True,
+            detail="scripted",
+            model="scripted",
+            model_available=True,
+            embedding_model="scripted",
+            embedding_available=True,
+        )

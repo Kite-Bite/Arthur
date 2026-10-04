@@ -163,6 +163,15 @@ def run_chat(config_path: Path | None = None, *, assume_yes: bool = False) -> No
             f"[yellow]Model {health.model!r} not pulled yet[/yellow] "
             f"- run: ollama pull {health.model}"
         )
+    if (
+        health.reachable
+        and not health.embedding_available
+        and services.embedder.name.startswith("ollama:")
+    ):
+        console.print(
+            f"[yellow]Embedding model {health.embedding_model!r} not pulled yet[/yellow] "
+            f"- RAG will fail until you run: ollama pull {health.embedding_model}"
+        )
 
     confirm_handler = approve if assume_yes else interactive_confirm
     conversation_id: str | None = None

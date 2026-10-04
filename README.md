@@ -156,21 +156,22 @@ ollama pull nomic-embed-text  # default embedding model
 ```bash
 git clone git@github.com:Kite-Bite/Arthur.git arthur && cd arthur
 uv sync                       # adds the `arthur` console script
-uv run arthur doctor          # verifies Ollama, model, tools, DB
+uv run arthur doctor          # verifies Ollama, models, embedder, tools, DB
 ```
 
 ```
             Arthur doctor
-┏━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━┓
-┃ check      ┃ status ┃ detail        ┃
-┡━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━┩
-│ ollama     │ ok     │ ollama 0.18.3 │
-│ model      │ ok     │ llama3.2:1b   │
-│ tools      │ ok     │ 24 registered │
-│ memory     │ ok     │ 4 entries     │
-│ documents  │ ok     │ 1 indexed     │
-│ audit      │ ok     │ 22 records    │
-└────────────┴────────┴───────────────┘
+┏━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+┃ check     ┃ status ┃ detail           ┃
+┡━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+│ ollama    │ ok     │ ollama 0.18.3    │
+│ model     │ ok     │ llama3.2:1b      │
+│ embed     │ ok     │ nomic-embed-text │
+│ tools     │ ok     │ 24 registered    │
+│ memory    │ ok     │ 4 entries        │
+│ documents │ ok     │ 1 indexed        │
+│ audit     │ ok     │ 22 records       │
+└───────────┴────────┴──────────────────┘
 ```
 
 ### 3. Use it

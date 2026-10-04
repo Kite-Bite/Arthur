@@ -346,6 +346,26 @@ def _config_show(
         services.close()
 
 
+def _embed_status(health: dict[str, object]) -> tuple[str, str]:
+    """Status row for the configured embedding provider.
+
+    The hash embedder needs no model at all, so it is always fine. An Ollama
+    embedder whose model is missing leaves RAG broken while every other row
+    still says ok - which is exactly the silent failure ``doctor`` exists to
+    catch. When Ollama is unreachable we already know the cause, so we do not
+    offer a misleading ``ollama pull`` hint.
+    """
+    embedder = str(health["embedder"])
+    if embedder.startswith("hash:"):
+        return "ok", f"{embedder} (offline, no model needed)"
+    if not health["llm_reachable"]:
+        return "UNAVAILABLE", "Ollama unreachable"
+    model = str(health["embedding_model"])
+    if health["embedding_available"]:
+        return "ok", model
+    return "MISSING", f"{model} (run: ollama pull {model})"
+
+
 def _doctor(
     config: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
@@ -353,6 +373,7 @@ def _doctor(
     services = Services.create(config)
     try:
         health = services.health()
+        embed_status, embed_detail = _embed_status(health)
         rows = [
             (
                 "ollama",
@@ -360,6 +381,7 @@ def _doctor(
                 str(health["llm_detail"]),
             ),
             ("model", "ok" if health["model_available"] else "MISSING", str(health["model"])),
+            ("embed", embed_status, embed_detail),
             ("tools", "ok", f"{health['tools']} registered"),
             ("memory", "ok", f"{health['memories']} entries"),
             ("documents", "ok", f"{health['indexed_documents']} indexed"),
@@ -373,7 +395,7 @@ def _doctor(
             style = "green" if status in {"ok"} else "red"
             table.add_row(check, f"[{style}]{status}[/{style}]", detail)
         console.print(table)
-        if not health["llm_reachable"]:
+        if not health["llm_reachable"] or embed_status == "MISSING":
             raise typer.Exit(code=1)
     finally:
         services.close()

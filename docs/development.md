@@ -11,7 +11,7 @@ package under `src/`.
 ```bash
 git clone git@github.com:Kite-Bite/Arthur.git arthur && cd arthur
 uv sync                    # core deps + dev group (pytest, ruff, mypy)
-uv run arthur doctor       # verifies Ollama, model, tools, database
+uv run arthur doctor       # verifies Ollama, models, embedder, tools, DB
 ```
 
 Optional extras:

@@ -46,6 +46,8 @@ class Health(BaseModel):
     detail: str = ""
     model: str = ""
     model_available: bool = False
+    embedding_model: str = ""
+    embedding_available: bool = False
 
 
 @runtime_checkable

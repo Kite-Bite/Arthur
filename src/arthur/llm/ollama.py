@@ -94,7 +94,13 @@ class OllamaClient:
             raise self._unreachable(exc) from exc
 
     def health(self) -> Health:
-        health = Health(model=self.config.model)
+        """Report reachability plus availability of both configured models.
+
+        The embedding model matters as much as the chat model: RAG silently
+        stops working without it, so it is checked in the same ``/api/tags``
+        round trip rather than left to fail at first query.
+        """
+        health = Health(model=self.config.model, embedding_model=self.config.embedding_model)
         try:
             version = self._client.get("/api/version", timeout=3.0)
             version.raise_for_status()
@@ -108,9 +114,21 @@ class OllamaClient:
             tags = self._client.get("/api/tags", timeout=3.0)
             tags.raise_for_status()
             names = {m.get("name", "") for m in tags.json().get("models", [])}
-            health.model_available = self.config.model in names
-            if not health.model_available:
-                health.detail += f"; model {self.config.model!r} not pulled"
+            health.model_available = _is_pulled(self.config.model, names)
+            health.embedding_available = _is_pulled(self.config.embedding_model, names)
+            missing = [
+                f"{label} not pulled"
+                for label, available in (
+                    (f"model {self.config.model!r}", health.model_available),
+                    (
+                        f"embedding model {self.config.embedding_model!r}",
+                        health.embedding_available,
+                    ),
+                )
+                if not available
+            ]
+            if missing:
+                health.detail += "; " + "; ".join(missing)
         except (httpx.HTTPError, ValueError):  # pragma: no cover - health is best-effort
             pass
         return health
@@ -183,3 +201,15 @@ def _detail(response: httpx.Response) -> str:
     except ValueError:
         pass
     return (response.text or response.reason_phrase)[:300]
+
+
+def _is_pulled(model: str, names: set[str]) -> bool:
+    """Whether ``model`` is present in Ollama's ``/api/tags`` listing.
+
+    Ollama stores a tagless reference such as ``llama3.2`` as
+    ``llama3.2:latest``, so an exact-match-only check reports a false
+    negative for every model configured without an explicit tag.
+    """
+    if model in names:
+        return True
+    return ":" not in model and f"{model}:latest" in names

@@ -172,3 +172,6 @@ def test_doctor_reports_llm_state(sandbox_env: dict[str, str], monkeypatch) -> N
     assert result.exit_code in {0, 1}
     assert "ollama" in result.output
     assert "tools" in result.output
+    # The sandbox uses the hash embedder, so no embedding model is required.
+    assert "embed" in result.output
+    assert "offline" in result.output
