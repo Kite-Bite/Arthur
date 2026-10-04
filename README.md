@@ -207,6 +207,41 @@ curl -s localhost:8420/health
 curl -s localhost:8420/documents/search?q=warehouse%20sync
 ```
 
+### 4. Docker
+
+The image packages Arthur only — Ollama stays on the host. Because Ollama
+binds `127.0.0.1:11434`, a container cannot reach it over the bridge, so on
+Linux use host networking:
+
+```bash
+docker build -t arthur .
+docker run --rm --network host arthur                 # arthur serve on :8420
+```
+
+Or keep bridge networking and route to the host's Ollama explicitly:
+
+```bash
+docker run --rm -p 8420:8420 \
+  --add-host=host.docker.internal:host-gateway \
+  -e OLLAMA_HOST=http://host.docker.internal:11434 arthur
+```
+
+State (memory, documents, audit trail) lives in a volume, so it survives
+restarts:
+
+```bash
+docker run --rm --network host \
+  -v arthur-data:/home/arthur/.local/share/arthur arthur
+
+docker run --rm arthur tools list                     # no Ollama needed
+docker inspect --format '{{.State.Health.Status}}' <container>
+```
+
+The `HEALTHCHECK` probes `/health` for liveness only. A missing Ollama shows
+up as `"status": "degraded"` in that payload rather than failing the probe —
+restarting Arthur cannot fix an external model server, so the container
+stays up.
+
 ---
 
 ## Commands
