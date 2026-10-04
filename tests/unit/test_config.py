@@ -67,6 +67,30 @@ def test_invalid_toml_raises(tmp_path: Path) -> None:
         load_config(path=config_file, env={})
 
 
+def test_unknown_tool_override_level_fails_at_load(tmp_path: Path) -> None:
+    """A typo'd level must not survive until the tool is first called."""
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        '[security]\ntool_overrides = { delete_file = "RESTRICTEDD" }\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Unknown permission level"):
+        load_config(path=config_file, env={})
+
+
+def test_valid_tool_override_is_accepted(tmp_path: Path) -> None:
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(
+        '[security]\ntool_overrides = { read_file = "CONFIRM" }\n',
+        encoding="utf-8",
+    )
+
+    cfg = load_config(path=config_file, env={})
+
+    assert cfg.security.tool_overrides == {"read_file": "CONFIRM"}
+
+
 def test_parse_env_file(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text(

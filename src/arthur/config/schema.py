@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # --- Defaults shared with the security module ---------------------------------
 
@@ -163,6 +163,26 @@ class SecurityConfig(BaseModel):
     safe_commands: list[str] = Field(default_factory=lambda: list(DEFAULT_SAFE_COMMANDS))
     # Per-tool permission changes, e.g. {"delete_file": "RESTRICTED"}.
     tool_overrides: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("tool_overrides")
+    @classmethod
+    def _validate_tool_overrides(cls, value: dict[str, str]) -> dict[str, str]:
+        """Reject unknown levels at load time.
+
+        A typo here would otherwise be discovered only when that tool is first
+        called, in the middle of a run.
+
+        The import is local: ``arthur.security`` imports this module, so a
+        module-level import would form a cycle.
+        """
+        from arthur.security.permissions import PermissionLevel
+
+        for tool, level in value.items():
+            try:
+                PermissionLevel.parse(level)
+            except ValueError as exc:
+                raise ValueError(f"security.tool_overrides[{tool!r}]: {exc}") from exc
+        return value
 
 
 class MemoryConfig(BaseModel):

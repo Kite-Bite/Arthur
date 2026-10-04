@@ -1,0 +1,32 @@
+# VCS and tooling
+.git
+.gitignore
+.github
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Local runtime state (never ship a user's data)
+*.db
+*.db-writable
+*.db-wal
+*.db-shm
+*.sqlite3
+arthur.log
+.env
+
+# Environments and build output
+.venv
+dist
+build
+*.egg-info
+__pycache__
+*.py[cod]
+
+# Docs and tests are not needed inside the image.
+# README.md must stay: uv_build reads it while building the wheel.
+docs
+tests
+LICENSE
