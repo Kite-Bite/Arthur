@@ -8,7 +8,7 @@ no mystery meat.
 
 ```mermaid
 flowchart LR
-    subgraph Your machine
+        subgraph Your machine
         U["You<br/>CLI or HTTP"]
         A["Arthur<br/>agent loop"]
         T["Tool registry<br/>24 typed tools"]
