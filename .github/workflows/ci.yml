@@ -54,6 +54,37 @@ jobs:
           path: coverage.xml
           if-no-files-found: ignore
 
+  # chromadb and pypdf are optional extras, so the job above never executes
+  # ChromaVectorStore or the PDF extractor. This one installs them and runs
+  # the whole suite again - including mypy, which only sees chromadb's real
+  # types (not Any) once it is installed.
+  extras:
+    name: "Optional extras"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: quality
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install with all extras
+        run: uv sync --locked --all-extras
+
+      - name: Type check with extras visible
+        run: uv run mypy src
+
+      - name: Test
+        run: uv run pytest
+
   # Confirms the package builds and the console script actually runs.
   package:
     name: "Build"

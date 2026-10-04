@@ -153,10 +153,13 @@ class ChromaVectorStore:
     def add(self, items: Sequence[VectorItem]) -> int:
         if not items:
             return 0
+        # Typed explicitly: list is invariant, so list[list[float]] does not
+        # satisfy chromadb's list[Sequence[float]] without the annotation.
+        embeddings: list[Sequence[float]] = [item.embedding for item in items]
         self._collection.upsert(
             ids=[i.id for i in items],
             documents=[i.text for i in items],
-            embeddings=[i.embedding for i in items],
+            embeddings=embeddings,
             metadatas=[{"source": i.source, "chunk_index": i.chunk_index, **i.meta} for i in items],
         )
         return len(items)
@@ -164,8 +167,9 @@ class ChromaVectorStore:
     def query(self, vector: Sequence[float], k: int) -> list[VectorHit]:
         if k <= 0:
             return []
+        query: list[Sequence[float]] = [list(vector)]
         result = self._collection.query(
-            query_embeddings=[list(vector)],
+            query_embeddings=query,
             n_results=k,
             include=["documents", "metadatas", "distances"],
         )
@@ -175,11 +179,13 @@ class ChromaVectorStore:
         metas = result.get("metadatas") or [[]]
         dists = result.get("distances") or [[]]
         for idx, doc, meta, dist in zip(ids[0], docs[0], metas[0], dists[0], strict=True):
+            # chromadb's metadata value union includes types int() rejects.
+            raw_index = meta.get("chunk_index", 0)
             hits.append(
                 VectorHit(
                     id=idx,
                     source=str(meta.get("source", "")),
-                    chunk_index=int(meta.get("chunk_index", 0)),
+                    chunk_index=int(raw_index) if isinstance(raw_index, int | float) else 0,
                     text=doc or "",
                     score=1.0 - float(dist),
                     meta=dict(meta),
@@ -188,8 +194,14 @@ class ChromaVectorStore:
         return hits
 
     def delete_source(self, source: str) -> int:
+        # chromadb's delete() reports nothing, so count first to honour the
+        # VectorStore contract (SqliteVectorStore returns a real rowcount).
+        existing = self._collection.get(where={"source": source}, include=[])
+        ids = existing.get("ids") or []
+        if not ids:
+            return 0
         self._collection.delete(where={"source": source})
-        return 0
+        return len(ids)
 
     def count(self) -> int:
         return int(self._collection.count())

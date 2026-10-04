@@ -235,3 +235,11 @@ Make the agent actually usable with a small local model
 
 Before pushing, run the four gates above. CI runs exactly the same commands
 (see `.github/workflows/ci.yml`), so a green local run means a green build.
+It then builds the wheel and the Docker image, and has a dedicated
+*Optional extras* job that re-runs the gates and the full suite under
+`uv sync --locked --all-extras`. That last job matters because `chromadb`
+and `pypdf` are absent from a default install: without it, the Chroma
+backend and PDF ingestion would never be executed — and mypy would only
+ever see `chromadb` as an untyped `Any`. Run `uv sync --all-extras` locally
+to execute `tests/extras/`; on a default install those tests skip with a
+message naming the extra they need.

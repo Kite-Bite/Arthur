@@ -338,7 +338,7 @@ See [`.env.example`](.env.example).
 
 ```bash
 uv sync --all-extras          # optional: chroma + pdf extras
-uv run pytest                 # 241 tests
+uv run pytest
 uv run ruff check .           # lint
 uv run ruff format --check .  # formatting
 uv run mypy src               # strict typing
@@ -350,6 +350,9 @@ Tests are grouped by intent:
 * `tests/integration` — the real Services graph with only the LLM scripted,
   plus a real temp git repo and the FastAPI/Typer surfaces
 * `tests/security` — denials, path escapes, confirmation and audit assertions
+* `tests/extras` — the Chroma backend and PDF ingestion; these **skip** with an
+  install hint unless you ran `uv sync --all-extras`, which CI does in its own
+  job so that code is never silently untested
 
 No fake benchmarks, no mocked-away security checks: the security suite asserts
 that a hostile tool *never executes*, not that it returns an error.
